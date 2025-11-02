@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLAD Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.6;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        #info h1 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #4CAF50;
+        }
+
+        #status {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-connected {
+            background: #4CAF50;
+        }
+
+        .status-loading {
+            background: #FFC107;
+        }
+
+        .status-error {
+            background: #F44336;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        #controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        #controls button {
+            display: block;
+            width: 100%;
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        #controls button:hover {
+            background: #45a049;
+        }
+
+        #controls button:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <div id="info">
+        <h1>CLAD Viewer</h1>
+        <div>Mouse: Rotate | Right-click: Pan | Scroll: Zoom</div>
+        <div>Model: <span id="model-name">Loading...</span></div>
+    </div>
+
+    <div id="controls">
+        <button onclick="resetCamera()">Reset Camera</button>
+        <button onclick="toggleGrid()">Toggle Grid</button>
+        <button onclick="toggleAxes()">Toggle Axes</button>
+        <button onclick="fitToView()">Fit to View</button>
+    </div>
+
+    <div id="status">
+        <span class="status-dot status-loading"></span>
+        <span id="status-text">Connecting...</span>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a);
+
+        const camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            10000
+        );
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // Controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight1.position.set(5, 10, 7);
+        directionalLight1.castShadow = true;
+        scene.add(directionalLight1);
+
+        const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+        directionalLight2.position.set(-5, -10, -7);
+        scene.add(directionalLight2);
+
+        // Grid
+        const gridHelper = new THREE.GridHelper(200, 20, 0x444444, 0x222222);
+        scene.add(gridHelper);
+
+        // Axes
+        const axesHelper = new THREE.AxesHelper(100);
+        scene.add(axesHelper);
+
+        // Model container
+        let currentModel = null;
+        let modelBoundingBox = new THREE.Box3();
+
+        // Load model
+        const loader = new GLTFLoader();
+        let currentModelPath = '';
+
+        function loadModel(path) {
+            updateStatus('loading', 'Loading model...');
+
+            loader.load(
+                path,
+                (gltf) => {
+                    // Remove previous model
+                    if (currentModel) {
+                        scene.remove(currentModel);
+                    }
+
+                    currentModel = gltf.scene;
+                    scene.add(currentModel);
+
+                    // Calculate bounding box
+                    modelBoundingBox.setFromObject(currentModel);
+
+                    // Set model name
+                    const modelName = path.split('/').pop();
+                    document.getElementById('model-name').textContent = modelName;
+
+                    // Fit camera to view
+                    fitToView();
+
+                    updateStatus('connected', 'Model loaded');
+                },
+                (progress) => {
+                    const percent = (progress.loaded / progress.total * 100).toFixed(0);
+                    updateStatus('loading', `Loading... ${percent}%`);
+                },
+                (error) => {
+                    console.error('Error loading model:', error);
+                    updateStatus('error', 'Failed to load model');
+                }
+            );
+        }
+
+        // Auto-reload check
+        function checkForUpdates() {
+            if (!currentModelPath) return;
+
+            fetch(currentModelPath, { method: 'HEAD' })
+                .then(response => {
+                    const lastModified = response.headers.get('Last-Modified');
+                    if (lastModified && lastModified !== window.lastModelModified) {
+                        window.lastModelModified = lastModified;
+                        if (window.modelLoadedOnce) {
+                            console.log('Model updated, reloading...');
+                            loadModel(currentModelPath);
+                        }
+                        window.modelLoadedOnce = true;
+                    }
+                })
+                .catch(err => console.warn('Update check failed:', err));
+        }
+
+        // Get model path from URL parameter or default
+        const urlParams = new URLSearchParams(window.location.search);
+        currentModelPath = urlParams.get('model') || '/models/current.glb';
+        loadModel(currentModelPath);
+
+        // Check for updates every 2 seconds
+        setInterval(checkForUpdates, 2000);
+
+        // Status updates
+        function updateStatus(type, message) {
+            const dot = document.querySelector('.status-dot');
+            dot.className = `status-dot status-${type}`;
+            document.getElementById('status-text').textContent = message;
+        }
+
+        // Camera controls
+        window.resetCamera = function() {
+            camera.position.set(100, 100, 100);
+            camera.lookAt(0, 0, 0);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        };
+
+        window.toggleGrid = function() {
+            gridHelper.visible = !gridHelper.visible;
+        };
+
+        window.toggleAxes = function() {
+            axesHelper.visible = !axesHelper.visible;
+        };
+
+        window.fitToView = function() {
+            if (!currentModel) return;
+
+            const center = new THREE.Vector3();
+            modelBoundingBox.getCenter(center);
+
+            const size = new THREE.Vector3();
+            modelBoundingBox.getSize(size);
+
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = camera.fov * (Math.PI / 180);
+            let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+
+            cameraZ *= 2; // Add some margin
+
+            camera.position.set(
+                center.x + cameraZ * 0.5,
+                center.y + cameraZ * 0.5,
+                center.z + cameraZ
+            );
+
+            controls.target.copy(center);
+            controls.update();
+        };
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize
+        resetCamera();
+        animate();
+    </script>
+</body>
+</html>
