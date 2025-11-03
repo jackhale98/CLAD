@@ -229,7 +229,10 @@ Example usage:
       (add (make-box 100 100 100))
       (get-result))  => shape"
 
-  (current-shape ctx))
+  (let ((wrapped-shape (current-shape ctx)))
+    (if wrapped-shape
+        (clad.shapes:unwrap-shape wrapped-shape)
+        nil)))
 
 ;;; ============================================================================
 ;;; Selection Operations

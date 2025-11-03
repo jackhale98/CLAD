@@ -663,20 +663,40 @@
    #:arc-radius
    #:arc-start-angle
    #:arc-end-angle
-   
+   #:circle-center
+   #:circle-radius
+   #:spline-points
+   #:spline-control-points
+   #:spline-closed-p
+
    ;; Sketch container
    #:sketch
    #:make-sketch
+   #:sketch-name
    #:sketch-entities
    #:sketch-constraints
    #:add-entity
+   #:add-constraint
    #:find-entity
-   
+
    ;; Parameters
    #:sketch-parameter
    #:param-name
    #:param-value
-   #:param-fixed-p))
+   #:param-fixed-p
+
+   ;; Sketch-to-3D conversion (Week 7-8)
+   #:sketch-plane
+   #:make-sketch-plane
+   #:make-sketch-plane-from-face  ; Week 11-12
+   #:plane-origin
+   #:plane-x-axis
+   #:plane-y-axis
+   #:plane-name
+   #:sketch-to-wire
+   #:sketch-to-face
+   #:extrude-sketch
+   #:revolve-sketch))
 
 (defpackage #:clad.sketch.constraints
   (:use #:cl #:clad.sketch)
@@ -691,16 +711,31 @@
    #:vertical-constraint
    #:parallel-constraint
    #:perpendicular-constraint
-   
+   #:angle-constraint
+   #:tangent-constraint
+
    ;; Constraint constructors
    #:make-constraint
-   
+   #:make-fixed-constraint
+   #:make-coincident-constraint
+   #:make-distance-constraint
+   #:make-horizontal-constraint
+   #:make-vertical-constraint
+   #:make-parallel-constraint
+   #:make-perpendicular-constraint
+   #:make-angle-constraint
+   #:make-tangent-constraint
+
    ;; Constraint accessors
    #:constraint-entities
    #:constraint-type
    #:constraint-parameters
    #:constraint-weight
-   
+   #:constraint-target-x
+   #:constraint-target-y
+   #:constraint-target-distance
+   #:constraint-target-angle
+
    ;; Constraint evaluation
    #:constraint-error
    #:constraint-jacobian

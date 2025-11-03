@@ -120,6 +120,8 @@
                   ((:file "entities")
                    (:file "constraints")
                    (:file "solver")
+                   (:file "conversion")   ; Week 7-8: Sketch-to-3D
+                   (:file "validation")   ; Week 9-10: Validation
                    (:file "dsl")))
 
                  ;; Layer 10: Assembly System (Phase 10)

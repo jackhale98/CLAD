@@ -47,9 +47,13 @@
 
     ;; Generate inline expansion of part forms
     (let ((expansion-code
-           `(with-context ()
-              ,@(mapcar #'expand-part-form-at-compile-time forms)
-              (get-result))))
+           `(progn
+              ;; Clear sketch registry for this part build
+              (clear-sketch-registry)
+              ;; Build the part
+              (with-context ()
+                ,@(mapcar #'expand-part-form-at-compile-time forms)
+                (get-result)))))
 
       ;; Generate the function definition plus auto-rebuild hook
       `(progn
@@ -132,6 +136,19 @@
                                                   ',plane-normal)))
           (add mirrored))))
 
+    ;; Phase 9 Sketch DSL forms
+    (:sketch
+     (expand-sketch-form-at-compile-time (rest form) nil))
+
+    (:solve-sketch
+     (expand-solve-sketch-at-compile-time (rest form)))
+
+    (:extrude-sketch
+     (expand-extrude-sketch-at-compile-time (rest form) nil))
+
+    (:cut-extrude-sketch
+     (expand-cut-extrude-sketch-at-compile-time (rest form) nil))
+
     (t
      (error "Unknown part form: ~S" form))))
 
@@ -172,6 +189,13 @@
           (:loft
            ;; Create loft through sections - Phase 8
            (expand-loft-feature-at-compile-time (rest feature-form)))
+          ;; Phase 9 Sketch DSL (within :on-face context)
+          (:sketch
+           (expand-sketch-form-at-compile-time (rest feature-form) t))
+          (:extrude-sketch
+           (expand-extrude-sketch-at-compile-time (rest feature-form) t))
+          (:cut-extrude-sketch
+           (expand-cut-extrude-sketch-at-compile-time (rest feature-form) t))
           (t
            (error "Unknown feature operation: ~S" (first feature-form)))))))
 
@@ -522,4 +546,246 @@
     (unless sections
       (error ":loft requires :sections parameter"))
     `(union-op (clad.core:make-loft ,sections :solid ,solid :ruled ,ruled))))
+
+;;; ============================================================================
+;;; Phase 9 Sketch DSL Support (Week 11-12)
+;;; ============================================================================
+
+;;; Sketch Registry - stores named sketches during part construction
+(defparameter *sketch-registry* (make-hash-table :test 'equal)
+  "Registry for named sketches defined in DSL")
+
+(defun register-sketch (name sketch plane)
+  "Register a sketch and its plane by name in the sketch registry."
+  (setf (gethash name *sketch-registry*) (cons sketch plane)))
+
+(defun lookup-sketch (name)
+  "Lookup a sketch by name from the sketch registry. Returns (values sketch plane)."
+  (let ((entry (gethash name *sketch-registry*)))
+    (if entry
+        (values (car entry) (cdr entry))
+        (values nil nil))))
+
+(defun clear-sketch-registry ()
+  "Clear all sketches from the registry (called at start of part build)."
+  (clrhash *sketch-registry*))
+
+(defun expand-sketch-entity-at-compile-time (entity-form sketch-var entity-registry-var)
+  "Expand a single sketch entity form (like :point, :line, :circle, :constraint).
+
+  Args:
+    entity-form - The entity definition (e.g., (:point :name \"P1\" :at (0 0) :fixed t))
+    sketch-var - Symbol referring to the sketch object
+    entity-registry-var - Symbol referring to the hash table storing named entities
+
+  Returns: Code that creates and adds the entity to the sketch"
+
+  (let ((entity-type (first entity-form))
+        (args (rest entity-form)))
+
+    (case entity-type
+      (:point
+       ;; Parse :point :name "P1" :at (x y) [:fixed t]
+       (let ((name nil)
+             (at nil)
+             (fixed nil))
+         (loop for (key value) on args by #'cddr
+               do (case key
+                    (:name (setf name value))
+                    (:at (setf at value))
+                    (:fixed (setf fixed value))
+                    (t (error "Unknown :point parameter: ~S" key))))
+         (unless at
+           (error ":point requires :at parameter"))
+         (let ((x (first at))
+               (y (second at)))
+           `(let ((point (clad.sketch:make-point-2d (coerce ,x 'double-float)
+                                                      (coerce ,y 'double-float)
+                                                      ,@(when name `(:name ,name))
+                                                      :fixed ,fixed)))
+              (clad.sketch:add-entity ,sketch-var point)
+              ,@(when name
+                  `((setf (gethash ,name ,entity-registry-var) point)))))))
+
+      (:line
+       ;; Parse :line [:name "L1"] :from "P1" :to "P2"
+       (let ((name nil)
+             (from nil)
+             (to nil))
+         (loop for (key value) on args by #'cddr
+               do (case key
+                    (:name (setf name value))
+                    (:from (setf from value))
+                    (:to (setf to value))
+                    (t (error "Unknown :line parameter: ~S" key))))
+         (unless (and from to)
+           (error ":line requires :from and :to parameters"))
+         `(let ((line (clad.sketch:make-line-2d
+                        (gethash ,from ,entity-registry-var)
+                        (gethash ,to ,entity-registry-var))))
+            (clad.sketch:add-entity ,sketch-var line)
+            ,@(when name
+                `((setf (gethash ,name ,entity-registry-var) line))))))
+
+      (:circle
+       ;; Parse :circle [:name "C1"] :center (x y) :radius r
+       (let ((name nil)
+             (center nil)
+             (radius nil))
+         (loop for (key value) on args by #'cddr
+               do (case key
+                    (:name (setf name value))
+                    (:center (setf center value))
+                    (:radius (setf radius value))
+                    (t (error "Unknown :circle parameter: ~S" key))))
+         (unless (and center radius)
+           (error ":circle requires :center and :radius parameters"))
+         (let ((cx (first center))
+               (cy (second center)))
+           `(let ((center-pt (clad.sketch:make-point-2d (coerce ,cx 'double-float)
+                                                          (coerce ,cy 'double-float)))
+                  (circle (clad.sketch:make-circle-2d
+                            (clad.sketch:make-point-2d (coerce ,cx 'double-float)
+                                                         (coerce ,cy 'double-float))
+                            (coerce ,radius 'double-float))))
+              (clad.sketch:add-entity ,sketch-var circle)
+              ,@(when name
+                  `((setf (gethash ,name ,entity-registry-var) circle)))))))
+
+      (:constraint
+       ;; Parse :constraint :type entity-ref1 [entity-ref2] [value]
+       ;; Examples:
+       ;;   (:constraint :horizontal "L1")
+       ;;   (:constraint :vertical "L2")
+       ;;   (:constraint :distance "P1" "P2" 20)
+       (let ((constraint-type (first args))
+             (remaining-args (rest args)))
+         (case constraint-type
+           (:horizontal
+            (let ((line-name (first remaining-args)))
+              `(let ((line (gethash ,line-name ,entity-registry-var)))
+                 (clad.sketch:add-constraint ,sketch-var
+                   (clad.sketch.constraints:make-horizontal-constraint line)))))
+           (:vertical
+            (let ((line-name (first remaining-args)))
+              `(let ((line (gethash ,line-name ,entity-registry-var)))
+                 (clad.sketch:add-constraint ,sketch-var
+                   (clad.sketch.constraints:make-vertical-constraint line)))))
+           (:distance
+            (let ((entity1-name (first remaining-args))
+                  (entity2-name (second remaining-args))
+                  (distance (third remaining-args)))
+              `(let ((e1 (gethash ,entity1-name ,entity-registry-var))
+                     (e2 (gethash ,entity2-name ,entity-registry-var)))
+                 (clad.sketch:add-constraint ,sketch-var
+                   (clad.sketch.constraints:make-distance-constraint
+                     e1 e2 (coerce ,distance 'double-float))))))
+           (t (error "Unknown constraint type: ~S" constraint-type)))))
+
+      (t (error "Unknown sketch entity type: ~S" entity-type)))))
+
+(defun expand-sketch-form-at-compile-time (args in-on-face-p)
+  "Expand a :sketch form at compile time.
+
+  Syntax:
+    (:sketch :name \"SketchName\" [:plane :xy|:yz|:xz]
+      (:point :name \"P1\" :at (0 0) :fixed t)
+      (:line :from \"P1\" :to \"P2\")
+      (:circle :center (0 0) :radius 10)
+      (:constraint :horizontal \"L1\"))
+
+  When in-on-face-p is true, the sketch plane is created from the selected face.
+  Otherwise, the :plane parameter specifies the plane type."
+
+  (let ((name nil)
+        (plane-type :xy)
+        (entity-forms '()))
+
+    ;; Parse keyword arguments and entity forms
+    (loop while args
+          for arg = (pop args)
+          do (cond
+               ((eq arg :name)
+                (setf name (pop args)))
+               ((eq arg :plane)
+                (setf plane-type (pop args)))
+               ((listp arg)
+                (push arg entity-forms))))
+
+    (setf entity-forms (nreverse entity-forms))
+
+    (unless name
+      (error ":sketch requires :name parameter"))
+
+    ;; Generate code to create sketch and entities
+    (let ((sketch-var (gensym "SKETCH-"))
+          (plane-var (gensym "PLANE-"))
+          (entity-registry-var (gensym "ENTITY-REGISTRY-")))
+
+      `(let* ((,entity-registry-var (make-hash-table :test 'equal))
+              ,@(if in-on-face-p
+                    ;; In :on-face context - create plane from selected face
+                    `((,plane-var (let ((selected-faces (clad.context:current-selection)))
+                                    (if (null selected-faces)
+                                        (error "No face selected for sketch ~A" ,name)
+                                        (clad.sketch:make-sketch-plane-from-face (first selected-faces))))))
+                    ;; Standalone sketch - use specified plane type
+                    `((,plane-var (clad.sketch:make-sketch-plane :type ,plane-type))))
+              (,sketch-var (clad.sketch:make-sketch :name ,name)))
+
+         ;; Add all entities
+         ,@(mapcar (lambda (entity-form)
+                     (expand-sketch-entity-at-compile-time entity-form sketch-var entity-registry-var))
+                   entity-forms)
+
+         ;; Register the sketch with its plane
+         (register-sketch ,name ,sketch-var ,plane-var)))))
+
+(defun expand-solve-sketch-at-compile-time (args)
+  "Expand a :solve-sketch form at compile time.
+  Syntax: (:solve-sketch \"SketchName\")"
+
+  (let ((name (first args)))
+    (unless name
+      (error ":solve-sketch requires a sketch name"))
+
+    `(multiple-value-bind (sketch plane) (lookup-sketch ,name)
+       (declare (ignore plane))
+       (unless sketch
+         (error "Sketch not found: ~A" ,name))
+       (clad.sketch.solver:solve-sketch sketch))))
+
+(defun expand-extrude-sketch-at-compile-time (args in-on-face-p)
+  "Expand an :extrude-sketch form at compile time.
+  Syntax: (:extrude-sketch \"SketchName\" distance)"
+
+  (declare (ignore in-on-face-p))
+  (let ((name (first args))
+        (distance (second args)))
+
+    (unless (and name distance)
+      (error ":extrude-sketch requires sketch name and distance"))
+
+    `(multiple-value-bind (sketch plane) (lookup-sketch ,name)
+       (unless sketch
+         (error "Sketch not found: ~A" ,name))
+       ;; Extrude the sketch and add to current shape
+       (union-op (clad.sketch:extrude-sketch sketch ,distance :plane plane)))))
+
+(defun expand-cut-extrude-sketch-at-compile-time (args in-on-face-p)
+  "Expand a :cut-extrude-sketch form at compile time.
+  Syntax: (:cut-extrude-sketch \"SketchName\" distance)"
+
+  (declare (ignore in-on-face-p))
+  (let ((name (first args))
+        (distance (second args)))
+
+    (unless (and name distance)
+      (error ":cut-extrude-sketch requires sketch name and distance"))
+
+    `(multiple-value-bind (sketch plane) (lookup-sketch ,name)
+       (unless sketch
+         (error "Sketch not found: ~A" ,name))
+       ;; Extrude the sketch and cut from current shape
+       (cut-op (clad.sketch:extrude-sketch sketch ,distance :plane plane)))))
 
