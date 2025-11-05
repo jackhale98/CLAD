@@ -153,7 +153,8 @@
                  (:file "context-tests")
                  (:file "dsl-tests")
                  (:file "advanced-features-tests")  ; Phase 8: selectors + fillets
-                 (:file "sketch-tests"))))          ; Phase 9: sketch system
+                 (:file "sketch-tests")             ; Phase 9: sketch system
+                 (:file "assembly-tests"))))        ; Phase 10: assembly system
   :perform (test-op (op c)
                     (declare (ignorable op c))
                     (symbol-call :fiveam '#:run! :clad-tests)))

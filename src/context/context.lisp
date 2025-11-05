@@ -222,17 +222,14 @@ Example usage:
   Args:
     ctx - Context (defaults to *context*)
 
-  Returns: The current shape (unwrapped core shape)
+  Returns: The current shape (wrapped shape)
 
   Example:
     (with-context ()
       (add (make-box 100 100 100))
-      (get-result))  => shape"
+      (get-result))  => wrapped shape"
 
-  (let ((wrapped-shape (current-shape ctx)))
-    (if wrapped-shape
-        (clad.shapes:unwrap-shape wrapped-shape)
-        nil)))
+  (current-shape ctx))
 
 ;;; ============================================================================
 ;;; Selection Operations

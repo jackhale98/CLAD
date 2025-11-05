@@ -789,23 +789,37 @@
    ;; Assembly classes
    #:assembly
    #:component
-   
+
    ;; Assembly constructors
    #:make-assembly
+   #:assembly-p
    #:add-component
-   
+   #:get-component
+   #:remove-component
+   #:list-components
+
    ;; Assembly accessors
    #:assembly-name
+   #:assembly-description
    #:assembly-components
    #:assembly-constraints
+   #:assembly-parameters
+   #:assembly-metadata
+   #:set-parameter
+   #:get-parameter
+
+   ;; Component accessors
    #:component-name
    #:component-part
+   #:component-assembly
    #:component-position
    #:component-rotation
    #:component-transform
    #:component-fixed-p
    #:component-quantity
-   #:component-metadata))
+   #:component-metadata
+   #:set-component-position
+   #:set-component-rotation))
 
 (defpackage #:clad.assembly.constraints
   (:use #:cl #:clad.assembly)
@@ -813,10 +827,13 @@
   (:export
    ;; Mate constraint class
    #:mate-constraint
-   
+
    ;; Mate constructors
    #:add-mate
-   
+   #:list-constraints
+   #:remove-constraint
+   #:clear-constraints
+
    ;; Mate accessors
    #:mate-type
    #:mate-component1
@@ -824,10 +841,15 @@
    #:mate-reference1
    #:mate-reference2
    #:mate-offset
-   
+
    ;; Mate evaluation
    #:mate-error
-   #:apply-mate))
+   #:apply-mate
+   #:mate-compatible-p
+
+   ;; DOF calculation
+   #:assembly-dof
+   #:assembly-status))
 
 (defpackage #:clad.assembly.solver
   (:use #:cl #:clad.assembly #:clad.assembly.constraints)
@@ -835,9 +857,12 @@
   (:export
    ;; Solver
    #:solve-assembly
-   
+   #:solver-status-string
+
    ;; Errors
-   #:assembly-solver-error))
+   #:assembly-solver-error
+   #:over-constrained-error
+   #:under-constrained-error))
 
 (defpackage #:clad.assembly.bom
   (:use #:cl #:clad.assembly)
@@ -849,10 +874,11 @@
    #:bom-entry-part
    #:bom-entry-quantity
    #:bom-entry-metadata
-   
+
    ;; BOM generation
    #:generate-bom
-   
+   #:print-bom
+
    ;; BOM export
    #:export-bom-csv
    #:export-bom-json))
@@ -860,7 +886,7 @@
 (defpackage #:clad.assembly.dsl
   (:use #:cl)
   (:import-from #:clad.assembly
-                #:make-assembly #:add-component)
+                #:make-assembly #:add-component #:set-parameter)
   (:import-from #:clad.assembly.constraints
                 #:add-mate)
   (:import-from #:clad.assembly.solver
@@ -869,6 +895,9 @@
   (:export
    ;; Assembly definition macro
    #:defassembly
-   
+
    ;; Reference macro
-   #:@ref))
+   #:@ref
+
+   ;; Utilities
+   #:with-assembly))
