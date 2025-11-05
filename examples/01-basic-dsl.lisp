@@ -43,7 +43,7 @@
   (:on-face :direction :+z :extreme :max
     (:cut (clad.core:translate
             (clad.core:make-cylinder (/ hole-diameter 2) (* size 1.2))
-            (/ size 2) (/ size 2) (- (/ size 10))))))
+            0 0 (- (/ size 10))))))
 
 (defun demo-box-with-hole ()
   (format t "~%Example 2: Box with Hole~%")
@@ -63,17 +63,17 @@
   ;; Start with base plate
   (:body (clad.core:make-box base-size base-size 10))
 
-  ;; Add boss on top face
+  ;; Add boss on top face (centered primitives make this simpler)
   (:on-face :direction :+z :extreme :max
     (:add (clad.core:translate
             (clad.core:make-cylinder (/ boss-diameter 2) boss-height)
-            (/ base-size 2) (/ base-size 2) 10)))
+            0 0 10)))
 
-  ;; Cut hole through boss and base
+  ;; Cut hole through boss and base (also centered)
   (:on-face :direction :+z :extreme :max
     (:cut (clad.core:translate
             (clad.core:make-cylinder 8 (+ boss-height 15))
-            (/ base-size 2) (/ base-size 2) 8))))
+            0 0 8))))
 
 (defun demo-base-with-boss ()
   (format t "~%Example 3: Base with Boss~%")
@@ -95,21 +95,22 @@
   (:body (clad.core:make-box size size 8))
 
   ;; Add mounting tabs on all four sides
+  ;; With centered primitives, tabs are positioned from the centered base
   (:on-face :direction :+x :extreme :max
     (:add (clad.core:translate (clad.core:make-box 5 20 15)
-                               size (- (/ size 2) 10) 8)))
+                               (/ size 2) -10 8)))
 
   (:on-face :direction :-x :extreme :min
     (:add (clad.core:translate (clad.core:make-box 5 20 15)
-                               -5 (- (/ size 2) 10) 8)))
+                               (- (/ size 2) 2.5) -10 8)))
 
   (:on-face :direction :+y :extreme :max
     (:add (clad.core:translate (clad.core:make-box 20 5 15)
-                               (- (/ size 2) 10) size 8)))
+                               -10 (/ size 2) 8)))
 
   (:on-face :direction :-y :extreme :min
     (:add (clad.core:translate (clad.core:make-box 20 5 15)
-                               (- (/ size 2) 10) -5 8))))
+                               -10 (- (/ size 2) 2.5) 8))))
 
 (defun demo-bracket-base ()
   (format t "~%Example 4: Face Selection~%")

@@ -16,14 +16,15 @@
   (:body (clad.core:make-box length width thickness))
 
   ;; Create linear pattern of holes along the length
+  ;; With centered primitives, coordinates are relative to centered box
   (:on-face :direction :+z :extreme :max
     (:linear-pattern
         :count hole-count
         :spacing (/ (- length 40) (1- hole-count))
         :direction-x 1
         :direction-y 0
-        :start-x 20
-        :start-y (/ width 2)
+        :start-x (- (/ length 2) 20)
+        :start-y 0
       (:cut (clad.core:make-cylinder 4 (* thickness 1.5))))))
 
 (defun demo-linear-pattern ()
@@ -47,19 +48,19 @@
   "Circular plate with radially patterned mounting holes"
   (:body (clad.core:make-cylinder (/ diameter 2) thickness))
 
-  ;; Center hole
+  ;; Center hole (cylinder is now centered at origin)
   (:on-face :direction :+z :extreme :max
     (:cut (clad.core:translate
             (clad.core:make-cylinder 10 (* thickness 1.5))
-            (/ diameter 2) (/ diameter 2) (- (/ thickness 4)))))
+            0 0 (- (/ thickness 4)))))
 
-  ;; Circular pattern of mounting holes
+  ;; Circular pattern of mounting holes (centered at origin)
   (:on-face :direction :+z :extreme :max
     (:circular-pattern
         :count hole-count
         :radius (/ diameter 3)
-        :center-x (/ diameter 2)
-        :center-y (/ diameter 2)
+        :center-x 0
+        :center-y 0
       (:cut (clad.core:make-cylinder (/ hole-diameter 2) (* thickness 1.5))))))
 
 (defun demo-circular-pattern ()
@@ -84,12 +85,13 @@
   (:body (clad.core:make-box (* radius 2) (* radius 2) thickness))
 
   ;; Partial circular pattern (90 degrees)
+  ;; Box is centered, so pattern center is at origin
   (:on-face :direction :+z :extreme :max
     (:circular-pattern
         :count 4
         :radius radius
-        :center-x radius
-        :center-y radius
+        :center-x 0
+        :center-y 0
         :angle-start 0
         :angle-end 90
       (:add (clad.core:translate (clad.core:make-cylinder 8 20)
@@ -117,14 +119,15 @@
   (:body (clad.core:make-box size size thickness))
 
   ;; Corner holes (linear pattern in X)
+  ;; Box is centered, so adjust start positions
   (:on-face :direction :+z :extreme :max
     (:linear-pattern
         :count 2
         :spacing (- size 20)
         :direction-x 1
         :direction-y 0
-        :start-x 10
-        :start-y 10
+        :start-x (- (/ size 2) 10)
+        :start-y (- (/ size 2) 10)
       (:cut (clad.core:make-cylinder 3 (* thickness 1.5)))))
 
   ;; Corner holes (linear pattern in Y)
@@ -134,17 +137,17 @@
         :spacing (- size 20)
         :direction-x 0
         :direction-y 1
-        :start-x (- size 10)
-        :start-y 10
+        :start-x (- (/ size 2) 10)
+        :start-y (- (/ size 2) 10)
       (:cut (clad.core:make-cylinder 3 (* thickness 1.5)))))
 
-  ;; Center circular pattern
+  ;; Center circular pattern (centered at origin)
   (:on-face :direction :+z :extreme :max
     (:circular-pattern
         :count 6
         :radius 30
-        :center-x (/ size 2)
-        :center-y (/ size 2)
+        :center-x 0
+        :center-y 0
       (:cut (clad.core:make-cylinder 2.5 (* thickness 1.5))))))
 
 (defun demo-combined-patterns ()
@@ -167,14 +170,15 @@
   (:body (clad.core:make-box size size 8))
 
   ;; Linear pattern for row 1
+  ;; Box is centered, so adjust all start positions
   (:on-face :direction :+z :extreme :max
     (:linear-pattern
         :count grid-count
         :spacing (/ (- size 20) (1- grid-count))
         :direction-x 1
         :direction-y 0
-        :start-x 10
-        :start-y 10
+        :start-x (- (/ size 2) 10)
+        :start-y (- (/ size 2) 10)
       (:cut (clad.core:make-cylinder 2 12))))
 
   ;; Linear pattern for row 2
@@ -184,8 +188,8 @@
         :spacing (/ (- size 20) (1- grid-count))
         :direction-x 1
         :direction-y 0
-        :start-x 10
-        :start-y (+ 10 (/ (- size 20) (1- grid-count)))
+        :start-x (- (/ size 2) 10)
+        :start-y (+ (- (/ size 2) 10) (/ (- size 20) (1- grid-count)))
       (:cut (clad.core:make-cylinder 2 12))))
 
   ;; Linear pattern for row 3
@@ -195,8 +199,8 @@
         :spacing (/ (- size 20) (1- grid-count))
         :direction-x 1
         :direction-y 0
-        :start-x 10
-        :start-y (+ 10 (* 2 (/ (- size 20) (1- grid-count))))
+        :start-x (- (/ size 2) 10)
+        :start-y (+ (- (/ size 2) 10) (* 2 (/ (- size 20) (1- grid-count))))
       (:cut (clad.core:make-cylinder 2 12))))
 
   ;; Linear pattern for row 4
@@ -206,8 +210,8 @@
         :spacing (/ (- size 20) (1- grid-count))
         :direction-x 1
         :direction-y 0
-        :start-x 10
-        :start-y (+ 10 (* 3 (/ (- size 20) (1- grid-count))))
+        :start-x (- (/ size 2) 10)
+        :start-y (+ (- (/ size 2) 10) (* 3 (/ (- size 20) (1- grid-count))))
       (:cut (clad.core:make-cylinder 2 12)))))
 
 (defun demo-grid-pattern ()

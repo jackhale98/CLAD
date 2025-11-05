@@ -176,10 +176,10 @@
            (expand-grid-pattern-at-compile-time (rest feature-form)))
           (:fillet
            ;; Apply fillet to currently selected edges
-           `(fillet-selected ,(second feature-form)))
+           `(clad.context:fillet-selected ,(second feature-form)))
           (:chamfer
            ;; Apply chamfer to currently selected edges
-           `(chamfer-selected ,(second feature-form)))
+           `(clad.context:chamfer-selected ,(second feature-form)))
           (:sweep
            ;; Sweep profile along path - Phase 8
            (expand-sweep-feature-at-compile-time (rest feature-form)))
@@ -488,10 +488,10 @@
          (union-op add-shape)))
       (:fillet
        (let ((radius (eval shape-form)))
-         (fillet-selected radius)))
+         (clad.context:fillet-selected radius)))
       (:chamfer
        (let ((distance (eval shape-form)))
-         (chamfer-selected distance)))
+         (clad.context:chamfer-selected distance)))
 
       (t
        (error "Unknown feature operation: ~S" operation)))))

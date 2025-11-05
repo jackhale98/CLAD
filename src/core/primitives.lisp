@@ -30,49 +30,52 @@
 ;;; Primitive Constructors
 ;;; ============================================================================
 
-(defun make-box (width height depth &key (center nil) metadata)
+(defun make-box (width height depth &key (center t) metadata)
   "Create a box primitive.
 
+  By default, the box is centered on the XY plane and starts at Z=0.
+
   Arguments:
-    width  - Box width in mm (X dimension)
-    height - Box height in mm (Y dimension)
-    depth  - Box depth in mm (Z dimension)
-    center - If T, center the box at origin (default: NIL, corner at origin)
+    width    - Box width in mm (X dimension)
+    height   - Box height in mm (Y dimension)
+    depth    - Box depth in mm (Z dimension)
+    center   - If T (default), center box in XY, start at Z=0
+               If NIL, place corner at origin (legacy behavior)
     metadata - Optional metadata plist
 
   Returns: shape
 
-  Example:
-    (make-box 100 50 30)              ; Box with corner at origin
-    (make-box 100 50 30 :center t)    ; Box centered at origin"
+  Examples:
+    (make-box 100 50 30)              ; Centered: (-50,-25,0) to (50,25,30)
+    (make-box 100 50 30 :center nil)  ; Corner: (0,0,0) to (100,50,30)"
   (let* ((handle (clad.ffi:ffi-make-box width height depth))
          (shape (make-shape handle :metadata metadata)))
     (if center
         (translate shape
                    (- (/ width 2.0))
                    (- (/ height 2.0))
-                   (- (/ depth 2.0)))
+                   0.0)
         shape)))
 
-(defun make-cylinder (radius height &key (center nil) metadata)
+(defun make-cylinder (radius height &key (center t) metadata)
   "Create a cylinder primitive.
 
+  By default, the cylinder is centered on the XY plane and starts at Z=0.
+
   Arguments:
-    radius - Cylinder radius in mm
-    height - Cylinder height in mm
-    center - If T, center the cylinder at origin (default: NIL)
+    radius   - Cylinder radius in mm
+    height   - Cylinder height in mm
+    center   - If T (default), cylinder is already centered in XY, starts at Z=0
+               If NIL, same behavior (cylinder is inherently XY-centered)
     metadata - Optional metadata plist
 
   Returns: shape
 
-  Example:
-    (make-cylinder 10 50)           ; Cylinder base at origin
-    (make-cylinder 10 50 :center t) ; Cylinder centered at origin"
-  (let* ((handle (clad.ffi:ffi-make-cylinder radius height))
-         (shape (make-shape handle :metadata metadata)))
-    (if center
-        (translate shape 0 0 (- (/ height 2.0)))
-        shape)))
+  Examples:
+    (make-cylinder 10 50)              ; Centered: radius 10, (0,0,0) to (0,0,50)
+    (make-cylinder 10 50 :center nil)  ; Same (cylinders are inherently centered)"
+  (let ((handle (clad.ffi:ffi-make-cylinder radius height)))
+    (make-shape handle :metadata metadata)))
 
 (defun make-sphere (radius &key metadata)
   "Create a sphere primitive.
@@ -88,26 +91,26 @@
   (let ((handle (clad.ffi:ffi-make-sphere radius)))
     (make-shape handle :metadata metadata)))
 
-(defun make-cone (radius1 radius2 height &key (center nil) metadata)
+(defun make-cone (radius1 radius2 height &key (center t) metadata)
   "Create a cone or truncated cone primitive.
 
+  By default, the cone is centered on the XY plane and starts at Z=0.
+
   Arguments:
-    radius1 - Bottom radius in mm
-    radius2 - Top radius in mm
-    height  - Cone height in mm
-    center  - If T, center the cone at origin (default: NIL)
+    radius1  - Bottom radius in mm
+    radius2  - Top radius in mm
+    height   - Cone height in mm
+    center   - If T (default), cone is already centered in XY, starts at Z=0
+               If NIL, same behavior (cones are inherently XY-centered)
     metadata - Optional metadata plist
 
   Returns: shape
 
-  Example:
-    (make-cone 20 10 50)              ; Truncated cone
-    (make-cone 20 0 50)               ; Full cone (tip at top)"
-  (let* ((handle (clad.ffi:ffi-make-cone radius1 radius2 height))
-         (shape (make-shape handle :metadata metadata)))
-    (if center
-        (translate shape 0 0 (- (/ height 2.0)))
-        shape)))
+  Examples:
+    (make-cone 20 10 50)                  ; Truncated cone, (0,0,0) to (0,0,50)
+    (make-cone 20 0 50)                   ; Full cone (tip at top)"
+  (let ((handle (clad.ffi:ffi-make-cone radius1 radius2 height)))
+    (make-shape handle :metadata metadata)))
 
 ;;; ============================================================================
 ;;; Validation

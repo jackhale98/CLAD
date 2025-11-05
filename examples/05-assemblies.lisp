@@ -1,6 +1,7 @@
 ;;;; examples/05-assemblies.lisp --- Assembly System Examples
 ;;;;
 ;;;; This file demonstrates the assembly and constraint system in CLAD.
+;;;; Updated for centered primitives - component positioning is now more intuitive!
 ;;;; Run with: (load "examples/05-assemblies.lisp")
 
 (asdf:load-system :clad)

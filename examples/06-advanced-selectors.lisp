@@ -1,6 +1,7 @@
 ;;;; examples/06-advanced-selectors.lisp --- Advanced Selector System Examples
 ;;;;
 ;;;; This file demonstrates the full power of CLAD's selector system.
+;;;; Updated for centered primitives!
 ;;;; Run with: (load "examples/06-advanced-selectors.lisp")
 
 (asdf:load-system :clad)
@@ -23,22 +24,22 @@
     (clad.context:select-faces :direction :+z :extreme :max)
     (format t "Selected top face (+Z, max)~%")
 
-    ;; Add a boss on top
+    ;; Add a boss on top (cylinder is now centered!)
     (clad.context:add (clad.core:translate
                         (clad.core:make-cylinder 15 10)
-                        20 20 80))
+                        0 0 80))
 
     ;; Select BOTTOM face
     (clad.context:select-faces :direction :-z :extreme :min)
     (format t "Selected bottom face (-Z, min)~%")
 
-    ;; Add feet on bottom
+    ;; Add feet on bottom (positioned relative to centered box)
+    (clad.context:add (clad.core:translate
+                        (clad.core:make-cylinder 8 5)
+                        -10 -10 -5))
     (clad.context:add (clad.core:translate
                         (clad.core:make-cylinder 8 5)
                         10 10 -5))
-    (clad.context:add (clad.core:translate
-                        (clad.core:make-cylinder 8 5)
-                        30 30 -5))
 
     (format t "Created box with top boss and bottom feet~%")
     (clad.context:get-result)))
@@ -53,11 +54,11 @@
   (format t "Selecting edges by type (line vs circle)~%")
 
   (clad.context:with-context ()
-    ;; Create base with cylindrical boss
+    ;; Create base with cylindrical boss (boss now centered on box!)
     (clad.context:add (clad.core:make-box 60 60 10))
     (clad.context:add (clad.core:translate
                         (clad.core:make-cylinder 20 15)
-                        30 30 10))
+                        0 0 10))
 
     ;; Select all LINE edges (straight edges)
     (clad.context:select-edges :type :line)
@@ -126,8 +127,8 @@
     (format t "Selected top face: direction +Z, extreme max~%")
     (clad.context:add (clad.core:translate
                         (clad.core:make-cylinder 20 15)
-                        40 40 40))
-    (format t "Added boss on top~%")
+                        0 0 40))
+    (format t "Added boss on top (centered!)~%")
 
     (clad.context:get-result)))
 

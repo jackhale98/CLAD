@@ -1,6 +1,8 @@
 ;;;; examples/04-advanced-features.lisp --- Advanced CAD Features
 ;;;;
 ;;;; This file demonstrates loft, sweep, pipe, and other advanced operations.
+;;;; These operations work with wires (explicit coordinates), so they're
+;;;; independent of primitive centering changes.
 ;;;; Run with: (load "examples/04-advanced-features.lisp")
 
 (asdf:load-system :clad)
