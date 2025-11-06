@@ -9,7 +9,8 @@ A powerful, code-first CAD system built in Common Lisp with OpenCASCADE Technolo
 - **Pattern Operations**: Create circular, linear, and grid patterns with ease
 - **Advanced Geometry**: Fillets, chamfers, lofts, sweeps, and pipes
 - **2D Sketching**: Parametric sketch system with constraint solving
-- **Assemblies**: Build complex assemblies with mate constraints
+- **Assemblies**: Build complex assemblies with `defassembly` DSL and mate constraints
+- **Bill of Materials**: Generate BOMs with part numbers, materials, and quantities
 - **Live Preview**: Integrated web-based 3D viewer with real-time updates
 - **Auto-Rebuild**: Automatic part regeneration on file save
 - **STEP Export**: Export to industry-standard STEP format
@@ -241,6 +242,58 @@ Select faces and edges intelligently:
        :radius 3)
 ```
 
+## Assemblies
+
+CLAD includes a powerful assembly system with declarative DSL:
+
+```lisp
+;; Define your parts
+(clad.dsl:defpart base-plate ((size 150))
+  (:body (clad.core:make-box size size 10)))
+
+(clad.dsl:defpart bracket ((width 50))
+  (:body (clad.core:make-box width 10 60)))
+
+;; Build the assembly
+(clad.assembly.dsl:defassembly my-assembly
+    ((base-size 150)
+     (bolt-count 4))
+  "Base with brackets and bolts"
+
+  ;; Add components
+  (:component :base (base-plate :size base-size)
+              :fixed t
+              :metadata '(:part-number "BASE-001"
+                         :material "Aluminum"))
+
+  (:component :bracket-left (bracket :width 50)
+              :metadata '(:part-number "BRKT-001"))
+
+  (:component :bolt (make-bolt :diameter 6)
+              :quantity bolt-count
+              :metadata '(:part-number "M6-20"
+                         :material "Steel"))
+
+  ;; Define mates
+  (:mate :coincident
+         :base :top-face
+         :bracket-left :bottom-face))
+
+;; Create and view
+(clad:view (my-assembly) :name "assembly")
+
+;; Generate BOM
+(clad.assembly:generate-bom (my-assembly))
+```
+
+**Assembly Features:**
+- Parametric assemblies with `defassembly`
+- Mate constraints (coincident, concentric, distance, parallel)
+- Component metadata for BOM generation
+- Quantity tracking for fasteners and repeated parts
+- Nested sub-assemblies
+- Fixed and floating components
+
 ## Examples
 
 The `examples/` directory contains comprehensive tutorials:
@@ -287,6 +340,25 @@ Or from command line:
 ```bash
 sbcl --eval "(asdf:test-system :clad)" --quit
 ```
+
+### Troubleshooting Compilation Issues
+
+If you encounter errors loading CLAD (e.g., `accessor redefinition warnings` or `CURRENT-SHAPE already names an ordinary function`), this is caused by stale compiled files in the cache. Clean the compilation cache and rebuild:
+
+```bash
+# Clean CLAD cache
+rm -rf ~/.cache/common-lisp/sbcl-*/home/*/projects/clad/
+
+# Rebuild from clean state
+sbcl --eval "(asdf:load-system :clad)" --quit
+```
+
+**Common symptoms:**
+- `CLAD.CONTEXT:CURRENT-SHAPE already names an ordinary function or a macro`
+- Accessor redefinition warnings during load
+- Examples failing to load after code changes
+
+**Why this happens:** When class definitions change (e.g., slot accessors), old compiled FASL files may conflict with new source code. Cleaning the cache forces a fresh compilation.
 
 ### Project Structure
 

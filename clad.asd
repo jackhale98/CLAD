@@ -132,7 +132,8 @@
                    (:file "constraints")
                    (:file "solver")
                    (:file "bom")
-                   (:file "dsl")))))))
+                   (:file "dsl")
+                   (:file "view")))))))
 
 
 (defsystem "clad/tests"

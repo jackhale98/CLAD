@@ -819,7 +819,11 @@
    #:component-quantity
    #:component-metadata
    #:set-component-position
-   #:set-component-rotation))
+   #:set-component-rotation
+
+   ;; Assembly viewing
+   #:assembly-to-shape
+   #:view-assembly))
 
 (defpackage #:clad.assembly.constraints
   (:use #:cl #:clad.assembly)
