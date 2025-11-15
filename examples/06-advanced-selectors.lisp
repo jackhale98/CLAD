@@ -133,6 +133,114 @@
     (clad.context:get-result)))
 
 ;;; ============================================================================
+;;; Example 5: Boolean Combinators - AND
+;;; ============================================================================
+
+(defun demo-and-combinator ()
+  (format t "~%Example 5: AND Combinator~%")
+  (format t "==========================~%~%")
+  (format t "Select entities matching ALL criteria~%")
+
+  (clad.context:with-context ()
+    ;; Create base plate
+    (clad.context:add (clad.core:make-box 100 100 20))
+
+    ;; Select planar faces pointing upward using AND
+    (clad.context:select-faces :and :type :plane :direction :+z)
+    (format t "Selected: planar AND upward-pointing faces~%")
+    (clad.context:add (clad.core:translate
+                        (clad.core:make-cylinder 10 15)
+                        0 0 20))
+    (format t "Added boss on selected face~%")
+
+    ;; Select vertical straight edges (line AND parallel to Z)
+    (clad.context:select-edges :and :type :line :parallel :z)
+    (format t "Selected: straight edges AND parallel to Z~%")
+    (clad.context:fillet-selected 3.0d0)
+    (format t "Applied fillet to vertical edges~%")
+
+    (clad.context:get-result)))
+
+;;; ============================================================================
+;;; Example 6: Boolean Combinators - OR
+;;; ============================================================================
+
+(defun demo-or-combinator ()
+  (format t "~%Example 6: OR Combinator~%")
+  (format t "=========================~%~%")
+  (format t "Select entities matching ANY criteria~%")
+
+  (clad.context:with-context ()
+    ;; Create base
+    (clad.context:add (clad.core:make-box 80 80 30))
+
+    ;; Select edges parallel to X OR Z
+    (clad.context:select-edges :or :parallel :x :parallel :z)
+    (format t "Selected: edges parallel to X OR Z~%")
+    (clad.context:fillet-selected 2.0d0)
+    (format t "Applied fillet to selected edges~%")
+
+    ;; Select top OR bottom faces
+    (clad.context:select-faces :or :direction :+z :extreme :max
+                                   :direction :-z :extreme :min)
+    (format t "Selected: top OR bottom faces~%")
+
+    (clad.context:get-result)))
+
+;;; ============================================================================
+;;; Example 7: Boolean Combinators - NOT
+;;; ============================================================================
+
+(defun demo-not-combinator ()
+  (format t "~%Example 7: NOT Combinator~%")
+  (format t "==========================~%~%")
+  (format t "Exclude specific features from selection~%")
+
+  (clad.context:with-context ()
+    ;; Create part
+    (clad.context:add (clad.core:make-box 60 60 25))
+
+    ;; Select all edges EXCEPT vertical ones
+    (clad.context:select-edges :not :parallel :z)
+    (format t "Selected: all edges EXCEPT vertical (NOT parallel to Z)~%")
+    (clad.context:fillet-selected 2.5d0)
+    (format t "Applied fillet to horizontal edges only~%")
+
+    ;; Select all faces EXCEPT the top
+    (clad.context:select-faces :not :direction :+z :extreme :max)
+    (format t "Selected: all faces EXCEPT top~%")
+
+    (clad.context:get-result)))
+
+;;; ============================================================================
+;;; Example 8: Nested Combinators
+;;; ============================================================================
+
+(clad.dsl:defpart complex-selector-part ()
+  "Part demonstrating nested combinator logic"
+
+  ;; Base geometry
+  (:body (clad.core:make-box 100 100 30))
+
+  ;; Add cylindrical boss
+  (:add (clad.core:translate (clad.core:make-cylinder 25 20) 0 0 30))
+
+  ;; Select vertical edges that are straight lines
+  ;; (AND combinator with type and parallel)
+  (:on-edge :and :type :line :parallel :z
+    (:fillet 4.0d0))
+
+  ;; Select planar faces that are top or bottom
+  ;; (AND with type, OR with directions)
+  (:on-face :and :type :plane
+                 :or :direction :+z :direction :-z
+    (:cut (clad.core:make-cylinder 3 40)))
+
+  ;; Select all edges except those on bottom
+  (:on-edge :not :direction :-z :extreme :min
+    (:chamfer 1.0d0)))
+
+;;; ============================================================================
 ;;; Main Demo Runner
 ;;; ============================================================================
 
@@ -146,7 +254,11 @@
   (let ((part1 (demo-direction-extreme))
         (part2 (demo-type-selection))
         (part3 (demo-parallel-selection))
-        (part4 (demo-combined-selectors)))
+        (part4 (demo-combined-selectors))
+        (part5 (demo-and-combinator))
+        (part6 (demo-or-combinator))
+        (part7 (demo-not-combinator))
+        (part8 (complex-selector-part)))
 
     (format t "~%~%")
     (format t "================================================================================~%")
@@ -156,15 +268,20 @@
     (format t "  - Extreme position (:extreme :min/:max)~%")
     (format t "  - Type-based (:type :line/:circle/:spline)~%")
     (format t "  - Parallel to axis (:parallel :x/:y/:z)~%")
-    (format t "  - Combined selectors (AND logic)~%")
+    (format t "  - AND combinator (all criteria must match)~%")
+    (format t "  - OR combinator (any criterion can match)~%")
+    (format t "  - NOT combinator (exclude matching entities)~%")
+    (format t "  - Nested combinators (complex logic)~%")
     (format t "~%Real-world applications:~%")
     (format t "  - Strategic filleting for stress relief~%")
     (format t "  - Selective edge finishing for manufacturing~%")
     (format t "  - Precise feature placement using direction selectors~%")
+    (format t "  - Complex multi-criteria geometric filtering~%")
+    (format t "  - Manufacturing-aware edge treatment (external vs internal)~%")
     (format t "================================================================================~%")
     (format t "~%")
 
-    (values part1 part2 part3 part4)))
+    (values part1 part2 part3 part4 part5 part6 part7 part8)))
 
 ;; Auto-run when loaded
 (run-selector-demos)

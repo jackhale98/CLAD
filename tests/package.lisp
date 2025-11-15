@@ -52,5 +52,8 @@
   (:export
    #:clad-tests
    #:run-tests
-   #:advanced-features-tests  ; Phase 8 test suite
-   #:sketch-tests))           ; Phase 9 test suite
+   #:advanced-features-tests     ; Phase 8 test suite
+   #:sketch-tests                ; Phase 9 test suite
+   #:position-selector-tests     ; Phase 2 test suite
+   #:selector-inspection-tests   ; Phase 3 test suite
+   #:face-plane-tests))          ; Phase 4 test suite

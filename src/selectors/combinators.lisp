@@ -40,7 +40,8 @@
       (dolist (child (rest child-selectors))
         (let ((child-result (apply-selector child shape-list)))
           ;; Intersection: keep only shapes in both result and child-result
-          (setf result (intersection result child-result))))
+          ;; Use :test #'eq for proper object identity comparison
+          (setf result (intersection result child-result :test #'eq))))
       result)))
 
 ;;; ============================================================================
@@ -80,7 +81,8 @@
       (dolist (child child-selectors)
         (let ((child-result (apply-selector child shape-list)))
           ;; Union: add all shapes from child-result that aren't already in result
-          (setf result (union result child-result))))
+          ;; Use :test #'eq for proper object identity comparison
+          (setf result (union result child-result :test #'eq))))
       result)))
 
 ;;; ============================================================================
@@ -116,4 +118,5 @@
   (let ((child-selector (selector-selector selector))
         (child-result (apply-selector (selector-selector selector) shape-list)))
     ;; Set difference: shapes in shape-list but not in child-result
-    (set-difference shape-list child-result)))
+    ;; Use :test #'eq for proper object identity comparison
+    (set-difference shape-list child-result :test #'eq)))

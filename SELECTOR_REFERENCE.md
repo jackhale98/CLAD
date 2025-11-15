@@ -236,6 +236,171 @@ This is essential for:
 
 ---
 
+## Boolean Selector Combinators
+
+CLAD supports logical combination of selectors using AND, OR, and NOT operators for complex selection queries.
+
+### AND Combinator
+
+Selects entities that match **ALL** criteria:
+
+**Syntax:**
+```lisp
+:and <selector1> <selector2> ...
+```
+
+**Examples:**
+
+```lisp
+;; Select planar faces pointing upward
+(:on-face :and :type :plane :direction :+z
+  (:fillet 2.0))
+
+;; Select large planar faces pointing upward
+(:on-face :and :type :plane
+               :direction :+z
+               :area :> 5000.0
+  (:cut (make-cylinder 5 10)))
+
+;; Select vertical straight edges
+(:on-edge :and :type :line :parallel :z
+  (:chamfer 1.0))
+
+;; Three criteria: planar AND upward AND large
+(:on-face :and :type :plane
+               :direction :+z :extreme :max
+               :area :> 1000.0
+  (:pattern ...))
+```
+
+**Use Cases:**
+- Filtering by multiple geometric properties
+- Combining type, direction, and size constraints
+- Precise feature selection on complex geometry
+
+### OR Combinator
+
+Selects entities that match **ANY** criteria:
+
+**Syntax:**
+```lisp
+:or <selector1> <selector2> ...
+```
+
+**Examples:**
+
+```lisp
+;; Select edges parallel to X OR Z (all horizontal/vertical edges)
+(:on-edge :or :parallel :x :parallel :z
+  (:fillet 2.0))
+
+;; Select top OR bottom faces
+(:on-face :or :direction :+z :extreme :max
+              :direction :-z :extreme :min
+  (:add (make-pattern ...)))
+
+;; Select cylindrical faces OR faces with large area
+(:on-face :or :type :cylinder
+              :area :> 5000.0
+  (:texture "brushed-metal"))
+```
+
+**Use Cases:**
+- Applying operations to multiple face/edge types
+- Selecting from multiple directions simultaneously
+- Batch operations on different geometric features
+
+### NOT Combinator
+
+Selects entities that **DO NOT** match the criteria:
+
+**Syntax:**
+```lisp
+:not <selector>
+```
+
+**Examples:**
+
+```lisp
+;; Select all faces EXCEPT cylindrical ones (all planar faces)
+(:on-face :not :type :cylinder
+  (:fillet 2.0))
+
+;; Select all faces EXCEPT the top face
+(:on-face :not :direction :+z :extreme :max
+  (:chamfer 1.0))
+
+;; Select all edges EXCEPT vertical ones
+(:on-edge :not :parallel :z
+  (:round 0.5))
+```
+
+**Use Cases:**
+- Exclude specific features from operations
+- "Everything except..." selections
+- Inverse selection patterns
+
+### Nested Combinators
+
+Combinators can be nested for complex logic:
+
+**Examples:**
+
+```lisp
+;; Planar faces that are either top OR bottom
+(:on-face :and :type :plane
+               :or :direction :+z :extreme :max
+                   :direction :-z :extreme :min
+  (:texture "grip-pattern"))
+
+;; Vertical edges parallel to X OR Y (but NOT Z)
+(:on-edge :and :not :parallel :z
+               :or :parallel :x :parallel :y
+  (:chamfer 1.0))
+
+;; Large faces that are NOT cylindrical
+(:on-face :and :not :type :cylinder
+               :area :> 1000.0
+  (:add (make-boss ...)))
+```
+
+### Combinator Tips
+
+**1. Order Doesn't Matter (within same combinator)**
+```lisp
+;; These are equivalent:
+:and :type :plane :direction :+z
+:and :direction :+z :type :plane
+```
+
+**2. Use Parentheses for Clarity (in nested cases)**
+```lisp
+;; Helps readability:
+(:on-face :and :type :plane
+               (:or :direction :+z :direction :-z)
+  ...)
+```
+
+**3. Test Selectors Individually First**
+```lisp
+;; Test each part:
+(:on-face :type :plane ...)        ; Does this work?
+(:on-face :direction :+z ...)      ; Does this work?
+;; Then combine:
+(:on-face :and :type :plane :direction :+z ...)
+```
+
+**4. Use NOT Carefully**
+```lisp
+;; Be explicit:
+:not :type :cylinder  ; Selects everything EXCEPT cylinders
+
+;; Not the same as:
+:type :plane          ; Only selects planes (misses other types)
+```
+
+---
+
 ## Other Selector Types
 
 ### Parallel Selector

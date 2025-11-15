@@ -84,9 +84,11 @@
      (let* ((args (rest form))
             (selector-spec '())
             (feature-forms '()))
-       ;; Split args into selector-spec (keywords) and feature-forms (lists)
+       ;; Split args into selector-spec (keywords or combinator lists) and feature-forms (other lists)
        (dolist (arg args)
-         (if (and (not feature-forms) (not (listp arg)))
+         (if (and (not feature-forms)
+                  (or (not (listp arg))
+                      (member (first arg) '(:and :or :not))))
              (push arg selector-spec)
              (push arg feature-forms)))
        (setf selector-spec (nreverse selector-spec))
@@ -94,7 +96,10 @@
 
        ;; Generate code for face selection and features
        `(progn
-          (select-faces ,@selector-spec)
+          (select-faces ,@(if (and (= 1 (length selector-spec))
+                                  (listp (first selector-spec)))
+                             (list (list 'quote (first selector-spec)))
+                             selector-spec))
           ,@(mapcar #'expand-feature-form-at-compile-time feature-forms))))
 
     (:on-edge
@@ -103,14 +108,19 @@
             (selector-spec '())
             (feature-forms '()))
        (dolist (arg args)
-         (if (and (not feature-forms) (not (listp arg)))
+         (if (and (not feature-forms)
+                  (or (not (listp arg))
+                      (member (first arg) '(:and :or :not))))
              (push arg selector-spec)
              (push arg feature-forms)))
        (setf selector-spec (nreverse selector-spec))
        (setf feature-forms (nreverse feature-forms))
 
        `(progn
-          (select-edges ,@selector-spec)
+          (select-edges ,@(if (and (= 1 (length selector-spec))
+                                  (listp (first selector-spec)))
+                             (list (list 'quote (first selector-spec)))
+                             selector-spec))
           ,@(mapcar #'expand-feature-form-at-compile-time feature-forms))))
 
     (:mirror
@@ -148,6 +158,10 @@
 
     (:cut-extrude-sketch
      (expand-cut-extrude-sketch-at-compile-time (rest form) nil))
+
+    ;; Phase 4: Lightweight workplane operations
+    (:on-face-plane
+     (expand-on-face-plane-at-compile-time (rest form)))
 
     (t
      (error "Unknown part form: ~S" form))))
@@ -788,4 +802,355 @@
          (error "Sketch not found: ~A" ,name))
        ;; Extrude the sketch and cut from current shape
        (cut-op (clad.sketch:extrude-sketch sketch ,distance :plane plane)))))
+
+;;; ============================================================================
+;;; Phase 4 Face-Plane Operations
+;;; ============================================================================
+
+(defun expand-on-face-plane-at-compile-time (args)
+  "Expand an :on-face-plane form at compile time (Phase 4).
+
+  Syntax:
+    (:on-face-plane selector-spec operation-forms...)
+
+  Example:
+    (:on-face-plane :direction :+z :extreme :max
+      (:cut-circle 10 :depth 15)
+      (:circular-pattern :count 8 :radius 50
+        (:cut-circle 4 :depth 12)))
+
+  This establishes a local coordinate system on the selected face where:
+  - Origin (0,0) is at the face center
+  - Z-axis points along the face normal
+  - Operations are performed in face-local coordinates"
+
+  (let ((selector-spec '())
+        (operation-forms '())
+        (parsing-selector t))
+
+    ;; Parse selector spec and operation forms
+    (dolist (arg args)
+      (cond
+        ;; If we're still parsing selector and arg is not a list (or is a combinator list)
+        ((and parsing-selector
+              (or (not (listp arg))
+                  (member (first arg) '(:and :or :not))))
+         (push arg selector-spec))
+        ;; Otherwise it's an operation form
+        (t
+         (setf parsing-selector nil)
+         (push arg operation-forms))))
+
+    (setf selector-spec (nreverse selector-spec))
+    (setf operation-forms (nreverse operation-forms))
+
+    ;; Generate code
+    `(progn
+       ;; Select face
+       ;; If selector-spec is a single combinator list, unwrap it
+       (select-faces ,@(if (and (= 1 (length selector-spec))
+                               (listp (first selector-spec)))
+                          (first selector-spec)
+                          selector-spec))
+       ;; Get first selected face
+       (let* ((selection (clad.context:current-selection)))
+         (unless selection
+           (error "No face selected for :on-face-plane"))
+         (let* ((face (first selection))
+                ;; Create workplane from face
+                (workplane (clad.workplane:workplane-from-face face)))
+           ;; Push workplane onto stack
+           (clad.context:push-workplane workplane)
+           ;; Execute operations in face-local coordinates
+           ,@(mapcar #'expand-face-plane-operation-at-compile-time operation-forms)
+           ;; Pop workplane
+           (clad.context:pop-workplane))))))
+
+(defun expand-face-plane-operation-at-compile-time (op-form)
+  "Expand a face-plane operation form (:cut-circle, :add-rectangle, patterns, etc.)."
+
+  (case (first op-form)
+    (:cut-circle
+     (expand-face-plane-cut-circle-at-compile-time (rest op-form)))
+
+    (:add-circle
+     (expand-face-plane-add-circle-at-compile-time (rest op-form)))
+
+    (:cut-rectangle
+     (expand-face-plane-cut-rectangle-at-compile-time (rest op-form)))
+
+    (:add-rectangle
+     (expand-face-plane-add-rectangle-at-compile-time (rest op-form)))
+
+    (:circular-pattern
+     (expand-face-plane-circular-pattern-at-compile-time (rest op-form)))
+
+    (:linear-pattern
+     (expand-face-plane-linear-pattern-at-compile-time (rest op-form)))
+
+    (:grid-pattern
+     (expand-face-plane-grid-pattern-at-compile-time (rest op-form)))
+
+    (t
+     (error "Unknown face-plane operation: ~S" (first op-form)))))
+
+(defun expand-face-plane-cut-circle-at-compile-time (args)
+  "Expand :cut-circle operation in face-plane context.
+  Syntax: (:cut-circle radius :depth depth)"
+
+  (let ((radius (first args))
+        (depth nil))
+
+    ;; Parse keyword arguments
+    (loop for (key value) on (rest args) by #'cddr
+          do (case key
+               (:depth (setf depth value))
+               (t (error "Unknown :cut-circle parameter: ~S" key))))
+
+    (unless depth
+      (error ":cut-circle requires :depth parameter"))
+
+    ;; Create cylinder at origin in workplane, transform to global, cut from current shape
+    `(let* ((wp (clad.context:current-workplane))
+            ;; Create cylinder with positive height, then translate down
+            (local-cylinder (clad.core:translate
+                              (clad.core:make-cylinder ,radius ,depth)
+                              0 0 (- ,depth)))
+            ;; Transform from local workplane coords to global coords
+            ;; Cylinder is centered at origin (0,0) in local coords, face center in global
+            (origin-global (clad.workplane:local-to-global wp '(0 0 0)))
+            (global-cylinder (clad.core:translate local-cylinder
+                                                   (first origin-global)
+                                                   (second origin-global)
+                                                   (third origin-global))))
+       (cut-op global-cylinder))))
+
+(defun expand-face-plane-add-circle-at-compile-time (args)
+  "Expand :add-circle operation in face-plane context.
+  Syntax: (:add-circle radius :height height)"
+
+  (let ((radius (first args))
+        (height nil))
+
+    ;; Parse keyword arguments
+    (loop for (key value) on (rest args) by #'cddr
+          do (case key
+               (:height (setf height value))
+               (t (error "Unknown :add-circle parameter: ~S" key))))
+
+    (unless height
+      (error ":add-circle requires :height parameter"))
+
+    ;; Create cylinder at origin in workplane, transform to global, add to current shape
+    `(let* ((wp (clad.context:current-workplane))
+            ;; Create cylinder at origin with height along +Z (away from face)
+            (local-cylinder (clad.core:make-cylinder ,radius ,height))
+            ;; Transform from local workplane coords to global coords
+            (origin-global (clad.workplane:local-to-global wp '(0 0 0)))
+            (global-cylinder (clad.core:translate local-cylinder
+                                                   (first origin-global)
+                                                   (second origin-global)
+                                                   (third origin-global))))
+       (union-op global-cylinder))))
+
+(defun expand-face-plane-cut-rectangle-at-compile-time (args)
+  "Expand :cut-rectangle operation in face-plane context.
+  Syntax: (:cut-rectangle width height :depth depth)"
+
+  (let ((width (first args))
+        (height (second args))
+        (depth nil))
+
+    ;; Parse keyword arguments
+    (loop for (key value) on (cddr args) by #'cddr
+          do (case key
+               (:depth (setf depth value))
+               (t (error "Unknown :cut-rectangle parameter: ~S" key))))
+
+    (unless depth
+      (error ":cut-rectangle requires :depth parameter"))
+
+    ;; Create centered box in workplane, transform to global, cut from current shape
+    `(let* ((wp (clad.context:current-workplane))
+            ;; Create box with positive depth, center it, then translate down
+            (local-box (clad.core:translate
+                         (clad.core:make-box ,width ,height ,depth)
+                         (/ ,width -2.0) (/ ,height -2.0) (- ,depth)))
+            ;; Transform from local workplane coords to global coords
+            (origin-global (clad.workplane:local-to-global wp '(0 0 0)))
+            (global-box (clad.core:translate local-box
+                                              (first origin-global)
+                                              (second origin-global)
+                                              (third origin-global))))
+       (cut-op global-box))))
+
+(defun expand-face-plane-add-rectangle-at-compile-time (args)
+  "Expand :add-rectangle operation in face-plane context.
+  Syntax: (:add-rectangle width height :height height-val)"
+
+  (let ((width (first args))
+        (height (second args))
+        (height-val nil))
+
+    ;; Parse keyword arguments
+    (loop for (key value) on (cddr args) by #'cddr
+          do (case key
+               (:height (setf height-val value))
+               (t (error "Unknown :add-rectangle parameter: ~S" key))))
+
+    (unless height-val
+      (error ":add-rectangle requires :height parameter"))
+
+    ;; Create centered box in workplane, transform to global, add to current shape
+    `(let* ((wp (clad.context:current-workplane))
+            ;; Create box centered at origin
+            (local-box (clad.core:translate
+                         (clad.core:make-box ,width ,height ,height-val)
+                         (/ ,width -2.0) (/ ,height -2.0) 0))
+            ;; Transform from local workplane coords to global coords
+            (origin-global (clad.workplane:local-to-global wp '(0 0 0)))
+            (global-box (clad.core:translate local-box
+                                              (first origin-global)
+                                              (second origin-global)
+                                              (third origin-global))))
+       (union-op global-box))))
+
+(defun expand-face-plane-circular-pattern-at-compile-time (args)
+  "Expand circular pattern in face-plane context.
+  Syntax: (:circular-pattern :count N :radius R operation)"
+
+  (let ((count nil)
+        (radius nil)
+        (operation-form nil))
+
+    ;; Parse keyword arguments
+    (loop for (key value) on args by #'cddr
+          while (keywordp key)
+          do (case key
+               (:count (setf count value))
+               (:radius (setf radius value))
+               (t (error "Unknown :circular-pattern parameter: ~S" key))))
+
+    ;; The last element should be the operation
+    (setf operation-form (car (last args)))
+
+    (unless (and count radius)
+      (error ":circular-pattern requires :count and :radius parameters"))
+
+    ;; Generate code for circular pattern in 2D workplane coords
+    `(loop for i from 0 below ,count
+           do (let* ((angle (* 2.0 pi (/ i ,count)))
+                     (x-offset (* ,radius (cos angle)))
+                     (y-offset (* ,radius (sin angle))))
+                ;; Each iteration, transform the operation to the pattern position
+                ,(expand-face-plane-pattern-operation-at-compile-time
+                  operation-form 'x-offset 'y-offset)))))
+
+(defun expand-face-plane-linear-pattern-at-compile-time (args)
+  "Expand linear pattern in face-plane context.
+  Syntax: (:linear-pattern :count N :spacing S :direction DIR operation)"
+
+  (let ((count nil)
+        (spacing nil)
+        (direction :x)  ; Default to X direction
+        (operation-form nil))
+
+    ;; Parse keyword arguments
+    (loop for (key value) on args by #'cddr
+          while (keywordp key)
+          do (case key
+               (:count (setf count value))
+               (:spacing (setf spacing value))
+               (:direction (setf direction value))
+               (t (error "Unknown :linear-pattern parameter: ~S" key))))
+
+    ;; The last element should be the operation
+    (setf operation-form (car (last args)))
+
+    (unless (and count spacing)
+      (error ":linear-pattern requires :count and :spacing parameters"))
+
+    ;; Generate code for linear pattern
+    (case direction
+      (:x
+       `(loop for i from 0 below ,count
+              do (let ((x-offset (* i ,spacing))
+                       (y-offset 0))
+                   ,(expand-face-plane-pattern-operation-at-compile-time
+                     operation-form 'x-offset 'y-offset))))
+      (:y
+       `(loop for i from 0 below ,count
+              do (let ((x-offset 0)
+                       (y-offset (* i ,spacing)))
+                   ,(expand-face-plane-pattern-operation-at-compile-time
+                     operation-form 'x-offset 'y-offset))))
+      (t
+       (error "Unknown :linear-pattern :direction: ~S (must be :x or :y)" direction)))))
+
+(defun expand-face-plane-grid-pattern-at-compile-time (args)
+  "Expand grid pattern in face-plane context.
+  Syntax: (:grid-pattern :x-count NX :y-count NY :x-spacing SX :y-spacing SY operation)"
+
+  (let ((x-count nil)
+        (y-count nil)
+        (x-spacing nil)
+        (y-spacing nil)
+        (operation-form nil))
+
+    ;; Parse keyword arguments
+    (loop for (key value) on args by #'cddr
+          while (keywordp key)
+          do (case key
+               (:x-count (setf x-count value))
+               (:y-count (setf y-count value))
+               (:x-spacing (setf x-spacing value))
+               (:y-spacing (setf y-spacing value))
+               (t (error "Unknown :grid-pattern parameter: ~S" key))))
+
+    ;; The last element should be the operation
+    (setf operation-form (car (last args)))
+
+    (unless (and x-count y-count x-spacing y-spacing)
+      (error ":grid-pattern requires :x-count, :y-count, :x-spacing, and :y-spacing parameters"))
+
+    ;; Generate code for grid pattern
+    `(loop for ix from 0 below ,x-count
+           do (loop for iy from 0 below ,y-count
+                    do (let ((x-offset (* ix ,x-spacing))
+                             (y-offset (* iy ,y-spacing)))
+                         ,(expand-face-plane-pattern-operation-at-compile-time
+                           operation-form 'x-offset 'y-offset))))))
+
+(defun expand-face-plane-pattern-operation-at-compile-time (operation-form x-var y-var)
+  "Expand a pattern operation with offset in face-plane coordinates."
+
+  (case (first operation-form)
+    (:cut-circle
+     (let ((radius (second operation-form))
+           (args (cddr operation-form)))
+       (let ((depth nil))
+         (loop for (key value) on args by #'cddr
+               do (case key
+                    (:depth (setf depth value))
+                    (t (error "Unknown :cut-circle parameter: ~S" key))))
+
+         (unless depth
+           (error ":cut-circle requires :depth parameter"))
+
+         ;; Create cylinder offset by pattern position
+         `(let* ((wp (clad.context:current-workplane))
+                 ;; Create cylinder with positive height, then translate down
+                 (local-cylinder (clad.core:translate
+                                   (clad.core:make-cylinder ,radius ,depth)
+                                   0 0 (- ,depth)))
+                 ;; Transform offset from local to global
+                 (offset-global (clad.workplane:local-to-global wp (list ,x-var ,y-var 0)))
+                 (global-cylinder (clad.core:translate local-cylinder
+                                                        (first offset-global)
+                                                        (second offset-global)
+                                                        (third offset-global))))
+            (cut-op global-cylinder)))))
+
+    (t
+     (error "Unknown face-plane pattern operation: ~S" (first operation-form)))))
 

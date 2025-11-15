@@ -72,7 +72,9 @@
                    (:file "type")         ; Phase 8
                    (:file "size")         ; Phase 8
                    (:file "combinators")
+                   (:file "position")     ; Phase 2 - Position-based selectors
                    (:file "custom")
+                   (:file "inspection")   ; Phase 3 - Debugging/inspection tools
                    (:file "api")))
 
                  ;; Layer 5.5: Workplanes (Phase 4)
@@ -150,7 +152,11 @@
                  (:file "units-tests")
                  (:file "shapes-tests")
                  (:file "selector-tests")
+                 (:file "selector-combinator-tests")  ; Phase 1 TDD - AND/OR/NOT combinators
+                 (:file "position-selector-tests")    ; Phase 2 TDD - Position-based selectors
+                 (:file "selector-inspection-tests")  ; Phase 3 TDD - Inspection/debugging
                  (:file "workplane-tests")
+                 (:file "face-plane-tests")           ; Phase 4 TDD - Face-plane operations
                  (:file "context-tests")
                  (:file "dsl-tests")
                  (:file "advanced-features-tests")  ; Phase 8: selectors + fillets

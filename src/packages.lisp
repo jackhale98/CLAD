@@ -319,6 +319,16 @@
    ;; Main API
    #:select
 
+   ;; Inspection/Debugging Tools (Phase 3)
+   #:inspect-selection
+   #:print-selection-report
+   #:debug-selection
+
+   ;; Viewer Highlighting (Phase 3.3)
+   #:add-highlight
+   #:get-highlights
+   #:clear-highlights
+
    ;; Selector classes (exported for testing, not typical user API)
    #:base-selector
    #:direction-selector
