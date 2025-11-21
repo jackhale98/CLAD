@@ -224,9 +224,26 @@
    ;; Tolerance specifications
    #:tolerance-spec
    #:make-tolerance-spec
+   #:tolerance-type
+   #:tolerance-upper
+   #:tolerance-lower
+   #:tolerance-upper-limit
+   #:tolerance-lower-limit
+   #:tolerance-fit-class
    #:bilateral-tolerance
    #:unilateral-tolerance
    #:symmetric-tolerance
+   #:format-tolerance
+
+   ;; Tolerance specification classes
+   #:bilateral-tolerance-spec
+   #:limit-tolerance-spec
+   #:fit-tolerance-spec
+
+   ;; ISO fit tolerances
+   #:iso-fit-error
+   #:iso-fit-error-message
+   #:lookup-iso-fit
 
    ;; Conversion utilities
    #:mm->in
@@ -238,7 +255,95 @@
    #:unit-symbol))
 
 ;;; ============================================================================
-;;; Layer 3.5: CLOS Shape Classes
+;;; Layer 3.5: GD&T System (Phase T2)
+;;; ============================================================================
+
+(defpackage #:clad.gdt
+  (:use #:cl)
+  (:documentation "Geometric Dimensioning and Tolerancing (GD&T) system")
+  (:export
+   ;; Datum feature classes
+   #:datum-feature
+   #:datum-label
+   #:datum-selector
+   #:datum-material-condition
+
+   ;; Datum constructors
+   #:make-datum
+
+   ;; Material condition types
+   #:material-condition-p
+
+   ;; Datum queries
+   #:find-datum
+   #:list-datums
+
+   ;; Datum metadata utilities
+   #:add-datum-to-metadata
+
+   ;; Datum reference frame utilities
+   #:datum-reference-frame-p
+   #:primary-datum
+   #:secondary-datum
+   #:tertiary-datum
+
+   ;; Geometric tolerance classes (Phase T3)
+   #:geometric-tolerance
+   #:form-tolerance
+   #:orientation-tolerance
+   #:location-tolerance
+   #:profile-tolerance
+   #:runout-tolerance
+
+   ;; Geometric tolerance accessors
+   #:tolerance-gdt-type
+   #:tolerance-zone-value
+   #:tolerance-feature-selector
+   #:tolerance-datum-refs
+   #:tolerance-material-condition
+   #:tolerance-material-conditions
+   #:tolerance-bilateral-p
+   #:tolerance-datum-ref
+
+   ;; Form tolerances
+   #:make-flatness-tolerance
+   #:make-straightness-tolerance
+   #:make-circularity-tolerance
+   #:make-cylindricity-tolerance
+
+   ;; Orientation tolerances
+   #:make-perpendicularity-tolerance
+   #:make-parallelism-tolerance
+   #:make-angularity-tolerance
+
+   ;; Location tolerances
+   #:make-position-tolerance
+   #:make-concentricity-tolerance
+   #:make-symmetry-tolerance
+
+   ;; Profile tolerances
+   #:make-profile-surface-tolerance
+   #:make-profile-line-tolerance
+
+   ;; Runout tolerances
+   #:make-circular-runout-tolerance
+   #:make-total-runout-tolerance
+
+   ;; GD&T metadata utilities
+   #:add-geometric-tolerance-to-metadata
+   #:find-geometric-tolerances
+   #:list-geometric-tolerances
+
+   ;; Validation (Priority 1)
+   #:gdt-validation-error
+   #:gdt-validation-error-message
+   #:validate-geometric-tolerance
+   #:validate-datum-reference-frame
+   #:check-tolerance-conflicts
+   #:validate-iso-fit))
+
+;;; ============================================================================
+;;; Layer 3.75: CLOS Shape Classes
 ;;; ============================================================================
 
 (defpackage #:clad.shapes
@@ -487,19 +592,103 @@
    #:clear-features))
 
 ;;; ============================================================================
+;;; Layer 5: Analysis (Mass Properties)
+;;; ============================================================================
+
+(defpackage #:clad.analysis
+  (:use #:cl)
+  (:import-from #:clad.core #:shape #:shape-handle)
+  (:import-from #:clad.ffi
+                #:ffi-get-volume
+                #:ffi-get-area
+                #:ffi-get-center-of-mass)
+  (:documentation "Mass properties and engineering analysis")
+  (:export
+   ;; Main API
+   #:mass-properties
+
+   ;; Material database
+   #:get-material
+   #:list-materials
+   #:define-material
+
+   ;; Convenience functions
+   #:volume
+   #:surface-area
+   #:mass
+   #:center-of-mass
+   #:inertia
+
+   ;; Material keywords
+   #:*material-database*))
+
+;;; ============================================================================
+;;; Layer 5.96: Features (Threads, Fasteners, etc.)
+;;; ============================================================================
+
+(defpackage #:clad.features
+  (:use #:cl)
+  (:import-from #:clad.core
+                #:shape #:shape-handle #:shape-metadata #:make-shape
+                #:valid-shape-p #:ensure-shape
+                #:make-spline #:make-sweep #:make-pipe
+                #:union-shapes #:cut-shapes #:translate #:rotate)
+  (:import-from #:clad.shapes
+                #:faces #:bounding-box
+                #:unwrap-shape)
+  (:documentation "Mechanical features: threads, fasteners, gears, etc.")
+  (:export
+   ;; Helix/helical curves
+   #:make-helix
+
+   ;; Thread profile
+   #:make-thread-profile
+
+   ;; Thread database
+   #:get-thread-spec
+   #:list-thread-specs
+   #:define-thread-spec
+   #:*thread-database*
+
+   ;; Thread creation
+   #:make-external-thread
+   #:make-internal-thread
+
+   ;; Thread operations
+   #:add-external-thread
+   #:cut-internal-thread
+
+   ;; Thread calculations
+   #:thread-minor-diameter
+   #:tap-drill-size
+
+   ;; Thread standards
+   #:thread-spec
+   #:thread-designation))
+
+;;; ============================================================================
 ;;; Layer 5: Export
 ;;; ============================================================================
 
 (defpackage #:clad.export
   (:use #:cl)
-  (:import-from #:clad.core #:shape #:shape-handle)
+  (:import-from #:clad.core #:shape #:shape-handle #:shape-metadata)
   (:import-from #:clad.ffi #:ffi-export-step #:ffi-export-stl #:ffi-export-gltf)
+  (:import-from #:clad.gdt
+                #:tolerance-gdt-type
+                #:tolerance-zone-value
+                #:tolerance-feature-selector
+                #:tolerance-datum-refs
+                #:tolerance-material-condition)
   (:documentation "CAD file export functionality")
   (:export
    #:export-step
    #:export-stl
    #:export-gltf
-   #:export-iges))
+   #:export-iges
+   ;; Phase T4: STEP AP242 PMI export
+   #:export-step-ap242
+   #:export-step-with-pmi))
 
 ;;; ============================================================================
 ;;; Layer 5: Viewer (Web-based visualization)

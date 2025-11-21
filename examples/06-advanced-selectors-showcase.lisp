@@ -12,6 +12,8 @@
 ;;;; - Cable management features
 ;;;; - Mounting holes for installation
 
+(require :asdf)
+(asdf:load-system :clad)
 (in-package :cl-user)
 
 ;;; ============================================================================
@@ -290,6 +292,92 @@
 (format t "  ✓ Phase 4: Face-plane operations with patterns~%")
 (format t "~%")
 (format t "===================================================================~%")
+(format t "~%")
+
+;;; ============================================================================
+;;; Interactive Viewer Integration
+;;; ============================================================================
+
+(defun view-servo-bracket ()
+  "View the servo mounting bracket with all advanced features.
+
+  This comprehensive example demonstrates:
+  - Phase 1: Boolean combinators (AND/OR/NOT)
+  - Phase 2: Position-based selectors
+  - Phase 3: Debugging and inspection tools
+  - Phase 4: Face-plane operations with patterns"
+
+  (format t "~%~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║   Advanced Selectors Showcase - Servo Mounting Bracket        ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%")
+
+  ;; Start viewer
+  (format t "Starting CLAD web viewer...~%")
+  (clad:start-viewer)
+  (format t "~%")
+
+  ;; View the servo bracket
+  (format t "Viewing Professional Servo Mounting Bracket~%")
+  (format t "Features:~%")
+  (format t "  - Multi-level design with raised servo platform~%")
+  (format t "  - Mounting ears for installation~%")
+  (format t "  - Cable management slot~%")
+  (format t "  - Servo mounting holes in grid pattern~%")
+  (format t "  - Base mounting holes~%")
+  (format t "~%")
+
+  (clad:view (servo-mounting-bracket) :name "servo-bracket")
+
+  (format t "~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║  Servo bracket loaded! Open http://localhost:8080 to view     ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%"))
+
+(defun view-servo-bracket-with-demo ()
+  "View the servo bracket and run interactive demonstration."
+  (view-servo-bracket)
+  (format t "~%Running interactive demonstration...~%~%")
+  (demonstrate-advanced-selectors))
+
+;;; ============================================================================
+;;; Quick Start Instructions
+;;; ============================================================================
+
+(format t "~%~%")
+(format t "╔════════════════════════════════════════════════════════════════╗~%")
+(format t "║                     QUICK START GUIDE                          ║~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")
+(format t "To view the servo mounting bracket in your browser:~%")
+(format t "  (view-servo-bracket)~%")
+(format t "~%")
+(format t "To view and run interactive demonstration:~%")
+(format t "  (view-servo-bracket-with-demo)~%")
+(format t "~%")
+(format t "To just run the demonstration (REPL inspection):~%")
+(format t "  (demonstrate-advanced-selectors)~%")
+(format t "~%")
+(format t "To create custom brackets:~%")
+(format t "  (clad:view (servo-mounting-bracket :base-width 100~%")
+(format t "                                     :servo-spacing 55)~%")
+(format t "             :name \"large-servo-bracket\")~%")
+(format t "~%")
+(format t "Features demonstrated in this showcase:~%")
+(format t "  ✓ Phase 1: Boolean combinators (AND/OR/NOT)~%")
+(format t "  ✓ Phase 2: Position-based selectors (at-z, parallel)~%")
+(format t "  ✓ Phase 3: Debugging tools (inspect-selection)~%")
+(format t "  ✓ Phase 4: Face-plane operations with grid patterns~%")
+(format t "~%")
+(format t "Real-world applications:~%")
+(format t "  - Robotics mounting brackets~%")
+(format t "  - Electronics enclosures~%")
+(format t "  - Mechanical assemblies~%")
+(format t "  - Fixture design~%")
+(format t "~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
 (format t "~%")
 
 ;;; ============================================================================

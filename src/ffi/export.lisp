@@ -20,6 +20,7 @@
   (filename :string)
   (linear-deflection occt-real)
   (angular-deflection occt-real)
+  (ascii-mode :int)
   (err-msg :pointer))
 
 (defcfun ("occt_export_gltf" %occt-export-gltf) :int
@@ -60,7 +61,8 @@
 
 (defun ffi-export-stl (shape-handle filename
                        &key (linear-deflection 0.1)
-                            (angular-deflection 0.5))
+                            (angular-deflection 0.5)
+                            (ascii nil))
   "Export shape to STL file (triangulated mesh).
 
   Arguments:
@@ -68,6 +70,7 @@
     filename            - Path to output STL file
     linear-deflection   - Maximum distance between mesh and surface (mm)
     angular-deflection  - Maximum angular deviation (degrees)
+    ascii               - T for ASCII format, NIL for binary (default: NIL)
 
   Returns: T on success
 
@@ -81,6 +84,7 @@
                             filename
                             (coerce linear-deflection 'double-float)
                             (coerce angular-deflection 'double-float)
+                            (if ascii 1 0)  ; Convert boolean to int
                             err-ptr)))
           (check-occt-result result-code "export-stl")
           t))

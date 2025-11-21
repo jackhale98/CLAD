@@ -3,6 +3,7 @@
 ;;;; This file demonstrates linear and circular patterns in CLAD DSL.
 ;;;; Run with: (load "examples/02-patterns.lisp")
 
+(require :asdf)
 (asdf:load-system :clad)
 (in-package :cl-user)
 
@@ -254,3 +255,101 @@
 
 ;; Auto-run when loaded
 (run-pattern-demos)
+
+;;; ============================================================================
+;;; Interactive Viewer Integration
+;;; ============================================================================
+
+(defun view-all-patterns ()
+  "Start the viewer and display all pattern examples in the browser.
+
+  This function demonstrates:
+  - Linear patterns for evenly-spaced features
+  - Circular patterns for radial arrangements
+  - Partial arc patterns
+  - Combined patterns (linear + circular)
+  - 2D grid patterns using multiple linear patterns"
+
+  (format t "~%~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║              Pattern Examples - Viewer Integration            ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%")
+
+  ;; Start viewer
+  (format t "Starting CLAD web viewer...~%")
+  (clad:start-viewer)
+  (format t "~%")
+
+  ;; View each pattern example
+  (format t "Viewing Linear Pattern (Flange with bolt holes)~%")
+  (clad:view (flange-linear) :name "02-linear-flange")
+  (sleep 0.5)
+
+  (format t "Viewing Circular Pattern (Mounting plate)~%")
+  (clad:view (mounting-plate-circular) :name "02-circular-plate")
+  (sleep 0.5)
+
+  (format t "Viewing Partial Circular Pattern (Arc bracket)~%")
+  (clad:view (arc-bracket) :name "02-arc-bracket")
+  (sleep 0.5)
+
+  (format t "Viewing Combined Patterns~%")
+  (clad:view (complex-mounting-plate) :name "02-complex-plate")
+  (sleep 0.5)
+
+  (format t "Viewing 2D Grid Pattern~%")
+  (clad:view (grid-plate) :name "02-grid-plate")
+
+  (format t "~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║  All pattern examples loaded! http://localhost:8080           ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%"))
+
+;; Individual viewer functions for each pattern example
+(defun view-linear-pattern ()
+  "View linear pattern example (flange with evenly-spaced holes)"
+  (clad:view (flange-linear) :name "linear-flange"))
+
+(defun view-circular-pattern ()
+  "View circular pattern example (mounting plate with radial holes)"
+  (clad:view (mounting-plate-circular) :name "circular-plate"))
+
+(defun view-arc-pattern ()
+  "View partial circular pattern example (90-degree arc)"
+  (clad:view (arc-bracket) :name "arc-bracket"))
+
+(defun view-combined-patterns ()
+  "View combined pattern example (linear + circular)"
+  (clad:view (complex-mounting-plate) :name "complex-plate"))
+
+(defun view-grid-pattern ()
+  "View 2D grid pattern example (4x4 hole array)"
+  (clad:view (grid-plate) :name "grid-plate"))
+
+;;; ============================================================================
+;;; Quick Start Instructions
+;;; ============================================================================
+
+(format t "~%~%")
+(format t "╔════════════════════════════════════════════════════════════════╗~%")
+(format t "║                     QUICK START GUIDE                          ║~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")
+(format t "To view all pattern examples in your browser:~%")
+(format t "  (view-all-patterns)~%")
+(format t "~%")
+(format t "To view individual examples:~%")
+(format t "  (view-linear-pattern)      ; Evenly-spaced holes~%")
+(format t "  (view-circular-pattern)    ; Radial bolt pattern~%")
+(format t "  (view-arc-pattern)         ; 90-degree arc~%")
+(format t "  (view-combined-patterns)   ; Multiple pattern types~%")
+(format t "  (view-grid-pattern)        ; 2D hole array~%")
+(format t "~%")
+(format t "Create custom patterns:~%")
+(format t "  (clad:view (flange-linear 300 80 12 8) :name \"large-flange\")~%")
+(format t "  (clad:view (mounting-plate-circular 150 10 12 8) :name \"big-plate\")~%")
+(format t "~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")

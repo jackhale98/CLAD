@@ -3,6 +3,7 @@
 ;;;; This file demonstrates 2D constraint-based sketching with extrusion.
 ;;;; Run with: (load "examples/06-sketches.lisp")
 
+(require :asdf)
 (asdf:load-system :clad)
 (in-package :cl-user)
 
@@ -311,3 +312,107 @@
 
 ;; Auto-run when loaded
 (run-sketch-demos)
+
+;;; ============================================================================
+;;; Interactive Viewer Integration
+;;; ============================================================================
+
+(defun view-all-sketches ()
+  "Start the viewer and display all sketch-based modeling examples in the browser.
+
+  This function demonstrates:
+  - 2D constraint-based sketching
+  - Dimensional and geometric constraints
+  - Sketch validation (checking constraint status)
+  - Extruding sketches to 3D solids
+  - Complex profiles and parametric sketches"
+
+  (format t "~%~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║       Sketch-Based Modeling - Viewer Integration              ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%")
+
+  ;; Start viewer
+  (format t "Starting CLAD web viewer...~%")
+  (clad:start-viewer)
+  (format t "~%")
+
+  ;; View each sketch example
+  (format t "Viewing Simple Rectangle Sketch~%")
+  (clad:view (demo-simple-rectangle-sketch) :name "sketch-rectangle")
+  (sleep 0.5)
+
+  (format t "Viewing Circular Sketch~%")
+  (clad:view (demo-circle-sketch) :name "sketch-circle")
+  (sleep 0.5)
+
+  (format t "Viewing L-Bracket Profile~%")
+  (clad:view (demo-l-bracket-sketch) :name "sketch-l-bracket")
+  (sleep 0.5)
+
+  (format t "Viewing Plate with Holes~%")
+  (clad:view (demo-plate-with-holes-sketch) :name "sketch-plate-holes")
+  (sleep 0.5)
+
+  (format t "Viewing Parametric Rounded Rectangle~%")
+  (clad:view (demo-parametric-sketch 80 60 5) :name "sketch-parametric")
+
+  (format t "~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║  All sketch examples loaded! http://localhost:8080            ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%"))
+
+;; Individual viewer functions for each sketch example
+(defun view-rectangle-sketch ()
+  "View simple constrained rectangle sketch"
+  (clad:view (demo-simple-rectangle-sketch) :name "rectangle-sketch"))
+
+(defun view-circle-sketch ()
+  "View constrained circle sketch"
+  (clad:view (demo-circle-sketch) :name "circle-sketch"))
+
+(defun view-l-bracket-sketch ()
+  "View L-bracket profile sketch"
+  (clad:view (demo-l-bracket-sketch) :name "l-bracket-sketch"))
+
+(defun view-plate-holes-sketch ()
+  "View plate with holes sketch"
+  (clad:view (demo-plate-with-holes-sketch) :name "plate-holes-sketch"))
+
+(defun view-parametric-sketch ()
+  "View parametric rounded rectangle sketch"
+  (clad:view (demo-parametric-sketch 80 60 5) :name "parametric-sketch"))
+
+;;; ============================================================================
+;;; Quick Start Instructions
+;;; ============================================================================
+
+(format t "~%~%")
+(format t "╔════════════════════════════════════════════════════════════════╗~%")
+(format t "║                     QUICK START GUIDE                          ║~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")
+(format t "To view all sketch-based modeling examples in your browser:~%")
+(format t "  (view-all-sketches)~%")
+(format t "~%")
+(format t "To view individual examples:~%")
+(format t "  (view-rectangle-sketch)      ; Constrained rectangle~%")
+(format t "  (view-circle-sketch)         ; Constrained circle~%")
+(format t "  (view-l-bracket-sketch)      ; L-shaped profile~%")
+(format t "  (view-plate-holes-sketch)    ; Plate with 2 holes~%")
+(format t "  (view-parametric-sketch)     ; Parametric design~%")
+(format t "~%")
+(format t "Create custom parametric sketches:~%")
+(format t "  (clad:view (demo-parametric-sketch 100 75 8) :name \"custom\")~%")
+(format t "~%")
+(format t "Sketch-based modeling features:~%")
+(format t "  - 2D constraint-based sketching~%")
+(format t "  - Dimensional constraints (distance, radius)~%")
+(format t "  - Geometric constraints (perpendicular, parallel)~%")
+(format t "  - Sketch validation (constraint status checking)~%")
+(format t "  - Extrusion to 3D solids~%")
+(format t "~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")

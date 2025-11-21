@@ -6,8 +6,95 @@
 ;;; STEP Export
 ;;; ============================================================================
 
+;;; Helper Functions
+
+(defun add-tolerance-metadata-to-step-file (shape filename)
+  "Add tolerance metadata as comments to STEP file header.
+
+  This provides human-readable tolerance information in the STEP file
+  until full AP242 PMI export is implemented (Phase 4)."
+  (let ((metadata (clad.core:shape-metadata shape)))
+    (when (and metadata (getf metadata :has-tolerances))
+      ;; Read the STEP file
+      (let ((lines (with-open-file (stream filename)
+                     (loop for line = (read-line stream nil)
+                           while line
+                           collect line))))
+
+        ;; Find the ENDSEC; line that ends the HEADER section
+        (let ((header-end-pos (position "ENDSEC;" lines :test #'string=)))
+          (when header-end-pos
+            ;; Insert tolerance comments before ENDSEC;
+            (let ((tolerance-comments (format-tolerance-comments metadata)))
+              (setf lines (append (subseq lines 0 header-end-pos)
+                                  tolerance-comments
+                                  (subseq lines header-end-pos))))
+
+            ;; Write the modified STEP file
+            (with-open-file (stream filename
+                                    :direction :output
+                                    :if-exists :supersede)
+              (dolist (line lines)
+                (write-line line stream)))))))))
+
+(defun format-tolerance-comments (metadata)
+  "Format tolerance metadata as STEP comment lines.
+
+  Returns a list of comment lines to insert into STEP header."
+  (let ((comments '("/* ======================================================================"
+                    "   CLAD Tolerance Information"
+                    "   ======================================================================")))
+    (let ((tolerance-features (getf metadata :tolerance-features)))
+      (dolist (feature tolerance-features)
+        (let ((feature-name (getf feature :feature))
+              (dimension (getf feature :dimension))
+              (type (getf feature :type)))
+          ;; Add feature comment
+          (push (format nil "   Feature: ~A (~A)" feature-name type) comments)
+
+          ;; Add tolerance details
+          (when (typep dimension 'clad.units:toleranced-dimension)
+            (let ((nominal (clad.units:dimension-nominal dimension))
+                  (tol (clad.units:dimension-tolerance dimension)))
+              (push (format nil "     Nominal: ~,3F mm" nominal) comments)
+
+              (cond
+                ;; ISO Fit
+                ((typep tol 'clad.units:fit-tolerance-spec)
+                 (push (format nil "     Tolerance: ISO ~A (+~,3F/~,3F mm)"
+                               (clad.units:tolerance-fit-class tol)
+                               (clad.units:tolerance-upper tol)
+                               (clad.units:tolerance-lower tol))
+                       comments))
+
+                ;; Bilateral
+                ((typep tol 'clad.units:bilateral-tolerance-spec)
+                 (if (< (abs (+ (clad.units:tolerance-upper tol)
+                                (clad.units:tolerance-lower tol)))
+                        0.0001)
+                     ;; Symmetric
+                     (push (format nil "     Tolerance: ±~,3F mm"
+                                   (clad.units:tolerance-upper tol))
+                           comments)
+                     ;; Asymmetric
+                     (push (format nil "     Tolerance: +~,3F/~,3F mm"
+                                   (clad.units:tolerance-upper tol)
+                                   (clad.units:tolerance-lower tol))
+                           comments)))
+
+                ;; Limit
+                ((typep tol 'clad.units:limit-tolerance-spec)
+                 (push (format nil "     Limits: ~,3F/~,3F mm"
+                               (clad.units:tolerance-upper-limit tol)
+                               (clad.units:tolerance-lower-limit tol))
+                       comments)))))))
+
+    (push "   ======================================================================" comments)
+    (push "*/" comments)
+    (nreverse comments))))
+
 (defun export-step (shape filename)
-  "Export shape to STEP file (ISO 10303-21 AP203).
+  "Export shape to STEP file (ISO 10303-21 AP203) with tolerance metadata.
 
   Arguments:
     shape    - clad.core:shape or clad.shapes:cad-shape to export
@@ -25,7 +112,10 @@
     - SolidWorks
     - AutoCAD
     - Fusion 360
-    - And most other CAD systems"
+    - And most other CAD systems
+
+  If the shape contains tolerance metadata, it will be included as
+  comments in the STEP file header for reference."
   ;; Unwrap CLOS shape if needed
   (let ((core-shape (if (typep shape 'clad.shapes:cad-shape)
                         (clad.shapes::core-shape shape)
@@ -43,6 +133,9 @@
     (clad.ffi:ffi-export-step
      (clad.core:shape-handle core-shape)
      (namestring (merge-pathnames filename)))
+
+    ;; Add tolerance metadata to STEP file if present
+    (add-tolerance-metadata-to-step-file core-shape filename)
 
     (format t "~&Exported STEP file: ~A~%" filename)
     t))

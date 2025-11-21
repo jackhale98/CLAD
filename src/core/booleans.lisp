@@ -26,7 +26,8 @@
             (let ((result-handle (clad.ffi:ffi-union
                                   (shape-handle s1)
                                   (shape-handle s2))))
-              (make-shape result-handle)))
+              ;; Preserve metadata from first shape
+              (make-shape result-handle :metadata (shape-metadata s1))))
           shapes))
 
 (defun cut-shapes (base-shape &rest tool-shapes)
@@ -51,7 +52,8 @@
             (let ((result-handle (clad.ffi:ffi-cut
                                   (shape-handle base)
                                   (shape-handle tool))))
-              (make-shape result-handle)))
+              ;; Preserve metadata from base shape
+              (make-shape result-handle :metadata (shape-metadata base))))
           tool-shapes
           :initial-value base-shape))
 
@@ -75,7 +77,8 @@
             (let ((result-handle (clad.ffi:ffi-intersect
                                   (shape-handle s1)
                                   (shape-handle s2))))
-              (make-shape result-handle)))
+              ;; Preserve metadata from first shape
+              (make-shape result-handle :metadata (shape-metadata s1))))
           shapes))
 
 ;;; ============================================================================

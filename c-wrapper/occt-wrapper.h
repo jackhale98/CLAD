@@ -191,11 +191,13 @@ int occt_export_step(occt_shape_t shape, const char* filename,
  * @param filename Output filename
  * @param linear_deflection Linear deflection for tessellation
  * @param angular_deflection Angular deflection for tessellation
+ * @param ascii_mode 1 for ASCII format, 0 for binary format
  * @param out_error Pointer to receive error message (if any)
  * @return Error code (OCCT_SUCCESS on success)
  */
 int occt_export_stl(occt_shape_t shape, const char* filename,
                     double linear_deflection, double angular_deflection,
+                    int ascii_mode,
                     char** out_error);
 
 /**

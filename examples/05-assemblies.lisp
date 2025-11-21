@@ -4,6 +4,7 @@
 ;;;; Updated for centered primitives - component positioning is now more intuitive!
 ;;;; Run with: (load "examples/05-assemblies.lisp")
 
+(require :asdf)
 (asdf:load-system :clad)
 (in-package :cl-user)
 
@@ -307,3 +308,114 @@
 
 ;; Auto-run when loaded
 (run-assembly-demos)
+
+;;; ============================================================================
+;;; Interactive Viewer Integration
+;;; ============================================================================
+
+(defun view-all-assemblies ()
+  "Start the viewer and display all assembly examples in the browser.
+
+  This function demonstrates:
+  - Creating multi-part assemblies
+  - Component positioning and transforms
+  - Mate constraints (coincident, concentric, distance, parallel)
+  - Nested sub-assemblies
+  - Component metadata for BOM generation
+  - Parametric assemblies with adjustable parameters"
+
+  (format t "~%~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║          Assembly Examples - Viewer Integration               ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%")
+
+  ;; Start viewer
+  (format t "Starting CLAD web viewer...~%")
+  (clad:start-viewer)
+  (format t "~%")
+
+  ;; View each assembly example
+  (format t "Viewing Simple Assembly (two boxes)~%")
+  (clad.assembly:view-assembly (demo-simple-assembly) :name "05-simple-assembly")
+  (sleep 0.5)
+
+  (format t "Viewing Constrained Assembly~%")
+  (clad.assembly:view-assembly (demo-constrained-assembly) :name "05-constrained-assembly")
+  (sleep 0.5)
+
+  (format t "Viewing Nested Assembly~%")
+  (clad.assembly:view-assembly (demo-nested-assembly) :name "05-nested-assembly")
+  (sleep 0.5)
+
+  (format t "Viewing Multi-Constraint Assembly~%")
+  (clad.assembly:view-assembly (demo-multiple-constraints) :name "05-multi-constraint")
+  (sleep 0.5)
+
+  (format t "Viewing Assembly with Metadata~%")
+  (clad.assembly:view-assembly (demo-assembly-metadata) :name "05-assembly-metadata")
+  (sleep 0.5)
+
+  (format t "Viewing Parametric Assembly~%")
+  (clad.assembly:view-assembly (demo-parametric-assembly) :name "05-parametric-assembly")
+
+  (format t "~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║  All assembly examples loaded! http://localhost:8080          ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%"))
+
+;; Individual viewer functions for each assembly example
+(defun view-simple-assembly ()
+  "View simple two-part assembly"
+  (clad.assembly:view-assembly (demo-simple-assembly) :name "simple-assembly"))
+
+(defun view-constrained-assembly ()
+  "View assembly with mate constraints"
+  (clad.assembly:view-assembly (demo-constrained-assembly) :name "constrained-assembly"))
+
+(defun view-nested-assembly ()
+  "View nested multi-level assembly"
+  (clad.assembly:view-assembly (demo-nested-assembly) :name "nested-assembly"))
+
+(defun view-multi-constraint-assembly ()
+  "View assembly with multiple constraint types"
+  (clad.assembly:view-assembly (demo-multiple-constraints) :name "multi-constraint"))
+
+(defun view-metadata-assembly ()
+  "View assembly with BOM metadata"
+  (clad.assembly:view-assembly (demo-assembly-metadata) :name "assembly-metadata"))
+
+(defun view-parametric-assembly ()
+  "View parametric assembly with adjustable parameters"
+  (clad.assembly:view-assembly (demo-parametric-assembly) :name "parametric-assembly"))
+
+;;; ============================================================================
+;;; Quick Start Instructions
+;;; ============================================================================
+
+(format t "~%~%")
+(format t "╔════════════════════════════════════════════════════════════════╗~%")
+(format t "║                     QUICK START GUIDE                          ║~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")
+(format t "To view all assembly examples in your browser:~%")
+(format t "  (view-all-assemblies)~%")
+(format t "~%")
+(format t "To view individual examples:~%")
+(format t "  (view-simple-assembly)         ; Two-part assembly~%")
+(format t "  (view-constrained-assembly)    ; With mate constraints~%")
+(format t "  (view-nested-assembly)         ; Multi-level hierarchy~%")
+(format t "  (view-multi-constraint-assembly) ; Multiple constraint types~%")
+(format t "  (view-metadata-assembly)       ; With BOM metadata~%")
+(format t "  (view-parametric-assembly)     ; Adjustable parameters~%")
+(format t "~%")
+(format t "Assembly features demonstrated:~%")
+(format t "  - Component positioning and transforms~%")
+(format t "  - Fixed and floating components~%")
+(format t "  - Mate constraints (coincident, concentric, distance, parallel)~%")
+(format t "  - Nested sub-assemblies~%")
+(format t "  - Metadata for BOM generation~%")
+(format t "~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")

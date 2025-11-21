@@ -401,6 +401,179 @@ Combinators can be nested for complex logic:
 
 ---
 
+## Position-Based Selectors
+
+Select shapes based on their position in 3D space.
+
+### At-Position Selectors
+
+Select faces/edges at a specific coordinate:
+
+**Syntax:**
+```lisp
+:at-x <value> :tolerance <tolerance>
+:at-y <value> :tolerance <tolerance>
+:at-z <value> :tolerance <tolerance>
+```
+
+**Parameters:**
+- `<value>` - Coordinate value in mm
+- `:tolerance` - Optional tolerance (default: 0.01mm)
+
+**Examples:**
+
+```lisp
+;; Select faces at Z = 50mm
+(:on-face :at-z 50.0
+  (:cut (clad.core:make-cylinder 5 10)))
+
+;; Select faces at Z = 50mm with 0.5mm tolerance
+(:on-face :at-z 50.0 :tolerance 0.5
+  (:add (clad.core:make-box 20 20 5)))
+
+;; Select edges at X = -25mm
+(:on-edge :at-x -25.0
+  (:fillet 2.0))
+```
+
+**Use Cases:**
+- Select features at specific heights in stepped geometry
+- Target faces at precise positions
+- Work with imported geometry where positions are known
+
+### Range Selectors
+
+Select shapes within a coordinate range:
+
+**Syntax:**
+```lisp
+:between-x <min> <max>
+:between-y <min> <max>
+:between-z <min> <max>
+```
+
+**Parameters:**
+- `<min>` - Minimum coordinate value
+- `<max>` - Maximum coordinate value
+
+**Examples:**
+
+```lisp
+;; Select all faces between Z=10 and Z=40
+(:on-face :between-z 10.0 40.0
+  (:chamfer 1.5))
+
+;; Select edges in the middle third of the part (X direction)
+(:on-edge :between-x 33.0 66.0
+  (:round 0.5))
+
+;; Combined with other selectors
+(:on-face :and :type :plane
+               :between-z 20.0 80.0
+  (:texture "brushed"))
+```
+
+**Use Cases:**
+- Select features in specific regions
+- Apply operations to middle sections
+- Batch processing of features in a range
+
+### Bounding Box Selector
+
+Select shapes within a 3D box region:
+
+**Syntax:**
+```lisp
+:within-box '(min-x min-y min-z) '(max-x max-y max-z)
+```
+
+**Parameters:**
+- First list: Minimum corner coordinates
+- Second list: Maximum corner coordinates
+
+**Examples:**
+
+```lisp
+;; Select faces within a centered box
+(:on-face :within-box '(-25 -25 0) '(25 25 50)
+  (:fillet 3.0))
+
+;; Select edges in upper-right quadrant
+(:on-edge :within-box '(0 0 20) '(100 100 100)
+  (:chamfer 2.0))
+
+;; Combined with type selector
+(:on-face :and :type :plane
+               :within-box '(10 10 10) '(90 90 90)
+  (:add (clad.core:make-cylinder 5 10)))
+```
+
+**Use Cases:**
+- Spatial filtering of features
+- Region-specific operations
+- Working with sub-assemblies or components
+
+### Proximity Selector
+
+Select shapes near a point:
+
+**Syntax:**
+```lisp
+:near-point '(x y z) :radius <distance>
+```
+
+**Parameters:**
+- Point: List of coordinates `'(x y z)`
+- `:radius` - Search radius (default: 10mm)
+
+**Examples:**
+
+```lisp
+;; Select faces near the origin
+(:on-face :near-point '(0 0 0) :radius 50.0
+  (:add (clad.core:make-sphere 10)))
+
+;; Select edges near a specific point
+(:on-edge :near-point '(100 50 25) :radius 10.0
+  (:fillet 2.0))
+
+;; Find faces near assembly mating point
+(:on-face :and :type :plane
+               :near-point '(75 75 20) :radius 15.0
+  (:cut-circle 6 :depth 12))
+```
+
+**Use Cases:**
+- Select features around connection points
+- Find geometry near datum points
+- Spatial queries for feature placement
+
+### Combining Position Selectors
+
+Position selectors work with Boolean combinators:
+
+**Examples:**
+
+```lisp
+;; Planar faces at top OR bottom
+(:on-face :and :type :plane
+               (:or :at-z 0.0 :tolerance 0.1
+                    :at-z 100.0 :tolerance 0.1)
+  (:finish "smooth"))
+
+;; Vertical edges NOT at the base
+(:on-edge :and :parallel :z
+               :not :at-z 0.0 :tolerance 1.0
+  (:fillet 5.0))
+
+;; Faces in box AND near point
+(:on-face :and :within-box '(0 0 0) '(50 50 50)
+               :near-point '(25 25 25) :radius 20.0
+  (:add ...))
+```
+
+---
+
 ## Other Selector Types
 
 ### Parallel Selector
@@ -511,6 +684,129 @@ Patterns work with any selector:
   (:add (make-box 80 2 4))   ; Horizontal rib
   (:add (make-box 2 80 4)))  ; Vertical rib
 ```
+
+---
+
+## Thread Modeling
+
+CLAD includes built-in support for standard threaded features (bolts, holes, nuts) for mechanical assemblies.
+
+### External Threads (Bolts, Studs)
+
+Create external threads using `:add` operation:
+
+```lisp
+;; Add M6 external thread on top face
+(:on-face :direction :+z :extreme :max
+  (:add (clad.features:make-external-thread :m6 :length 30)))
+
+;; Add M8 thread boss
+(defpart threaded-boss ((diameter 16) (boss-height 25) (thread-length 20))
+  (:body (clad.core:make-box 50 50 10))
+  (:on-face :direction :+z :extreme :max
+    (:add (clad.core:make-cylinder (/ diameter 2) boss-height))
+    (:add (clad.features:make-external-thread :m8 :length thread-length))))
+```
+
+### Internal Threads (Threaded Holes)
+
+Create internal threads using `:cut` operation:
+
+```lisp
+;; Cut M6 threaded hole on top face
+(:on-face :direction :+z :extreme :max
+  (:cut (clad.features:make-internal-thread :m6 :depth 25)))
+
+;; Tapped holes with circular pattern
+(defpart mounting-plate ((hole-count 4))
+  (:body (clad.core:make-box 100 100 10))
+  (:on-face :direction :+z :extreme :max
+    (:circular-pattern :count hole-count :radius 35
+      (:cut (clad.core:make-cylinder 2.5 12))  ; Clearance hole through
+      (:cut (clad.features:make-internal-thread :m6 :depth 15)))))  ; Thread
+```
+
+### Available Thread Standards
+
+**ISO Metric:**
+- `:m3`, `:m6`, `:m8`, `:m10`
+
+**ISO Metric Fine:**
+- `:m8x1.0`, `:m10x1.25`
+
+**Unified (UNC/UNF):**
+- `:1/4-20`
+
+**Query Available Threads:**
+```lisp
+(clad.features:list-thread-specs)
+;; => (:M3 :M6 :M8 :M10 :M8X1.0 :M10X1.25 :1/4-20)
+```
+
+### Thread Calculations
+
+**Tap Drill Sizing:**
+```lisp
+;; Calculate correct drill size for M6 tap
+(clad.features:tap-drill-size :m6)
+;; => 5.0 mm
+
+;; Create hole with proper tap drill
+(:on-face :direction :+z :extreme :max
+  (:cut (clad.core:make-cylinder
+          (/ (clad.features:tap-drill-size :m8) 2)
+          20)))
+```
+
+**Minor Diameter:**
+```lisp
+;; Get thread minor diameter (root diameter)
+(clad.features:thread-minor-diameter :m6)
+;; => 4.917 mm
+```
+
+### Thread DSL Examples
+
+**Bolt with Head:**
+```lisp
+(defpart hex-bolt ((thread-spec :m8) (thread-length 30) (head-size 13))
+  (:body (clad.core:make-cylinder (/ head-size 2) 5))  ; Head
+  (:on-face :direction :-z :extreme :min
+    (:add (clad.features:make-external-thread thread-spec :length thread-length))))
+```
+
+**Threaded Insert:**
+```lisp
+(defpart threaded-insert-boss ((outer-dia 12) (thread-spec :m6))
+  (:body (clad.core:make-cylinder (/ outer-dia 2) 20))
+  (:on-face :direction :+z :extreme :max
+    (:cut (clad.features:make-internal-thread thread-spec :depth 18))))
+```
+
+**Assembly Mating Holes:**
+```lisp
+(defpart mating-plate ((spacing 80))
+  (:body (clad.core:make-box 100 100 8))
+  (:on-face :direction :+z :extreme :max
+    ;; Corner clearance holes for bolts
+    (:circular-pattern :count 4 :radius (/ spacing 2) :angle-start 45 :angle-end 315
+      (:cut (clad.core:make-cylinder 4.5 10)))))  ; M8 clearance
+```
+
+### Engineering Notes
+
+**Cosmetic vs. Detailed:**
+- Current implementation uses cosmetic threads (cylinders at major diameter)
+- Suitable for assemblies where exact thread form isn't critical
+- Fast geometry generation and lightweight exports
+
+**Thread Engagement:**
+- For blind holes, use depth ≥ 1.5× major diameter for full strength
+- Example: M6 thread needs ≥ 9mm depth
+
+**Clearance Holes:**
+- Use major diameter + 0.5mm for bolt clearance
+- M6 bolt → 6.5mm hole, M8 bolt → 8.5mm hole
 
 ---
 

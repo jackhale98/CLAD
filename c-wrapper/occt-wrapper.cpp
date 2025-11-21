@@ -402,6 +402,7 @@ int occt_export_step(occt_shape_t shape, const char* filename,
 
 int occt_export_stl(occt_shape_t shape, const char* filename,
                     double linear_deflection, double angular_deflection,
+                    int ascii_mode,
                     char** out_error)
 {
     if (!shape) {
@@ -427,6 +428,8 @@ int occt_export_stl(occt_shape_t shape, const char* filename,
 
         // Write STL file
         StlAPI_Writer writer;
+        // Set ASCII mode (0 = binary, 1 = ASCII)
+        writer.ASCIIMode() = (ascii_mode ? Standard_True : Standard_False);
         Standard_Boolean result = writer.Write(*s, filename);
 
         if (!result) {

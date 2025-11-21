@@ -5,15 +5,20 @@ A powerful, code-first CAD system built in Common Lisp with OpenCASCADE Technolo
 ## Features
 
 - **Declarative DSL**: Define parametric parts with `defpart` - clean, readable, and powerful
-- **Smart Selectors**: Intelligently select faces and edges by direction, geometry type, or custom predicates
+- **Smart Selectors**: Intelligently select faces and edges by direction, geometry type, position, or Boolean logic (AND/OR/NOT)
+- **Face-Plane Operations**: Lightweight workplane system for patterns and features on faces
 - **Pattern Operations**: Create circular, linear, and grid patterns with ease
 - **Advanced Geometry**: Fillets, chamfers, lofts, sweeps, and pipes
+- **Thread Modeling**: ISO Metric and Unified threads (M3, M6, M8, M10, 1/4-20) with automatic tap drill calculations
+- **Tolerancing & GD&T**: Full geometric dimensioning and tolerancing (datums, flatness, perpendicularity, position, profile, runout)
 - **2D Sketching**: Parametric sketch system with constraint solving
 - **Assemblies**: Build complex assemblies with `defassembly` DSL and mate constraints
 - **Bill of Materials**: Generate BOMs with part numbers, materials, and quantities
 - **Live Preview**: Integrated web-based 3D viewer with real-time updates
 - **Auto-Rebuild**: Automatic part regeneration on file save
-- **STEP Export**: Export to industry-standard STEP format
+- **STEP Export**: Export to industry-standard STEP format with full GD&T/PMI support (AP242)
+- **STL Export**: 3D printing ready - binary/ASCII formats with configurable resolution (:low, :medium, :high, :ultra)
+- **Mass Properties**: Calculate volume, mass, center of mass, and inertia for engineering analysis
 
 ## Quick Start
 
@@ -86,8 +91,11 @@ brew install opencascade sbcl
 (clad:view *my-plate* :name "mounting-plate")
 ;; Opens at http://localhost:8080
 
-;; Export to STEP
+;; Export to STEP for CAD/CAM
 (clad.export:export-step *my-plate* "mounting-plate.step")
+
+;; Export to STL for 3D printing
+(clad.export:export-stl *my-plate* "mounting-plate.stl" :resolution :high)
 
 ;; Try different parameters
 (defparameter *large-plate* (mounting-plate :width 150 :height 120))
@@ -139,10 +147,35 @@ Select faces and edges intelligently:
 (:on-face :type :cylindrical              ; Curved faces
   ...)
 
-;; Combine selectors
-(:on-edge :type :line :parallel :x        ; Straight edges along X
+;; Boolean combinators
+(:on-face :and :type :plane :direction :+z  ; Planar AND upward-facing
+  ...)
+
+(:on-edge :or :parallel :x :parallel :z    ; Edges parallel to X OR Z
+  ...)
+
+;; Position-based selection
+(:on-face :at-z 50.0 :tolerance 0.1       ; Faces at Z=50mm
   ...)
 ```
+
+### Face-Plane Operations
+
+Work directly on faces with automatic centering:
+
+```lisp
+;; Establish local 2D coordinate system on a face
+(:on-face-plane :direction :+z :extreme :max
+  ;; Cut a centered hole
+  (:cut-circle 10 :depth 15)
+
+  ;; Grid pattern of holes
+  (:grid-pattern :x-count 4 :y-count 4
+                 :x-spacing 20 :y-spacing 20
+    (:cut-circle 3 :depth 10))
+
+  ;; Add a rectangular boss
+  (:add-rectangle 30 20 :height 5))
 
 ### Operations
 
@@ -242,6 +275,125 @@ Select faces and edges intelligently:
        :radius 3)
 ```
 
+## Thread Modeling
+
+Create standard threaded features for mechanical assemblies:
+
+```lisp
+;; External threads (bolts, studs)
+(clad.dsl:defpart hex-bolt
+    ((thread-spec :m8)
+     (thread-length 30)
+     (head-diameter 13))
+  "M8 hex bolt"
+  (:body (clad.core:make-cylinder (/ head-diameter 2) 5))  ; Head
+  (:on-face :direction :-z :extreme :min
+    (:add (clad.features:make-external-thread thread-spec :length thread-length))))
+
+;; Internal threads (threaded holes)
+(clad.dsl:defpart mounting-plate-threaded
+    ((hole-spacing 70))
+  "Mounting plate with M6 threaded holes"
+  (:body (clad.core:make-box 100 100 10))
+  (:on-face :direction :+z :extreme :max
+    (:circular-pattern :count 4 :radius (/ hole-spacing 2)
+      (:cut (clad.features:make-internal-thread :m6 :depth 15)))))
+
+;; Calculate tap drill size
+(clad.features:tap-drill-size :m6)  ; => 5.0 mm
+(clad.features:thread-minor-diameter :m8)  ; => 6.647 mm
+```
+
+**Available Thread Standards:**
+- **ISO Metric**: M3, M6, M8, M10
+- **ISO Metric Fine**: M8x1.0, M10x1.25
+- **Unified**: 1/4-20 (UNC)
+
+## Tolerancing & GD&T
+
+Full geometric dimensioning and tolerancing per ASME Y14.5:
+
+```lisp
+(clad.dsl:defpart precision-part
+    ((base-width 100)
+     (boss-diameter 40))
+  "Production part with GD&T callouts"
+
+  ;; Base plate
+  (:body (clad.core:make-box base-width base-width 12))
+
+  ;; Central mounting boss
+  (:on-face :direction :+z :extreme :max
+    (:add (clad.core:translate
+            (clad.core:make-cylinder (/ boss-diameter 2) 25)
+            (/ base-width 2) (/ base-width 2) 12)))
+
+  ;; Establish datum reference frame (A-B-C)
+  (:datum "A" :on-face :direction :-z :extreme :min)  ; Primary: bottom
+  (:datum "B" :on-face :direction :+x :extreme :max)  ; Secondary: right
+  (:datum "C" :on-face :direction :+y :extreme :max)  ; Tertiary: back
+
+  ;; Form tolerance: Bottom face flatness within 0.05mm
+  (:flatness :on-face :direction :-z :extreme :min
+             :tolerance 0.05)
+
+  ;; Orientation: Top face perpendicular to datum A within 0.1mm
+  (:perpendicularity :on-face :direction :+z :extreme :max
+                     :tolerance 0.1
+                     :datum-ref "A")
+
+  ;; Location: Boss position within ⌀0.2mm of true position
+  (:position :on-face :type :cylindrical
+             :tolerance 0.2
+             :datum-refs ("A" "B" "C")
+             :mmc t))  ; Maximum Material Condition
+
+;; Export with PMI (Product Manufacturing Information)
+(clad.export:export-step (precision-part) "precision-part.step")
+```
+
+**Supported Tolerance Types:**
+- **Form**: Flatness, straightness, circularity, cylindricity
+- **Orientation**: Perpendicularity, parallelism, angularity
+- **Location**: Position, concentricity, symmetry
+- **Profile**: Profile of surface, profile of line
+- **Runout**: Circular runout, total runout
+
+## STL Export (3D Printing)
+
+Export parts to STL format for 3D printing with configurable quality:
+
+```lisp
+;; Standard 3D printing export (binary, medium resolution)
+(defparameter *bracket* (mounting-bracket :width 80))
+(clad.export:export-stl *bracket* "bracket.stl")
+
+;; High detail for precise parts
+(clad.export:export-stl *gear* "gear.stl" :resolution :high)
+
+;; ASCII format for debugging
+(clad.export:export-stl *test-part* "test.stl" :ascii t)
+
+;; Ultra high resolution for tiny features
+(clad.export:export-stl *miniature* "mini.stl" :resolution :ultra)
+```
+
+**Resolution Levels:**
+- **:low** - 0.5mm linear, 1.0° angular (fast, coarse mesh)
+- **:medium** - 0.1mm linear, 0.5° angular (recommended default)
+- **:high** - 0.05mm linear, 0.25° angular (detailed parts)
+- **:ultra** - 0.01mm linear, 0.1° angular (maximum detail)
+
+**Format Options:**
+- **Binary STL** (default) - Smaller files (~5x), faster processing
+- **ASCII STL** (`:ascii t`) - Human-readable, easier to debug
+
+**3D Printing Workflow:**
+1. Design part in CLAD
+2. Export: `(clad.export:export-stl my-part "part.stl" :resolution :high)`
+3. Import STL into slicer (Cura, PrusaSlicer, etc.)
+4. Generate G-code and print!
+
 ## Assemblies
 
 CLAD includes a powerful assembly system with declarative DSL:
@@ -304,6 +456,7 @@ The `examples/` directory contains comprehensive tutorials:
 - **04-advanced-features.lisp** - Lofts, sweeps, and pipes
 - **05-assemblies.lisp** - Building assemblies with constraints
 - **06-advanced-selectors.lisp** - Advanced face and edge selection
+- **06-advanced-selectors-showcase.lisp** - Boolean combinators, position selectors, and face-plane operations
 - **06-sketches.lisp** - 2D parametric sketching
 
 Run any example:
@@ -421,6 +574,10 @@ For file-watching auto-rebuild:
 | Parametric | ✓ | ✓ | ✓ |
 | Assemblies | ✓ | ✗ | ✓ |
 | Sketching | ✓ | ✗ | ✓ |
+| Thread Modeling | ✓ | ✓ | ✓ |
+| GD&T / Tolerancing | ✓ | ✗ | Limited |
+| STL Export | ✓ | ✓ | ✓ |
+| STEP Export | ✓ | ✗ | ✓ |
 | Live Viewer | ✓ | ✓ | ✓ |
 
 ## Why CLAD?

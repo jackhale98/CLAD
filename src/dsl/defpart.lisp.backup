@@ -985,19 +985,6 @@
     (unless tolerance-zone
       (error "~A requires :tolerance parameter" gdt-type))
 
-    ;; Validate GD&T specification per ASME Y14.5 (Priority 1)
-    (clad.gdt:validate-geometric-tolerance
-     :gdt-type gdt-type
-     :datum-refs datum-refs
-     :datum-ref datum-ref
-     :tolerance-zone (if (numberp tolerance-zone) tolerance-zone 0.1)  ; Use dummy value if symbolic
-     :material-condition material-condition
-     :bilateral bilateral)
-
-    ;; Validate datum reference frame if present
-    (when datum-refs
-      (clad.gdt:validate-datum-reference-frame datum-refs))
-
     ;; Generate code based on GD&T type
     (let ((constructor-call
            (case gdt-type
@@ -1051,25 +1038,6 @@
                 ,datum-ref
                 :material-condition ,material-condition))
 
-
-             ;; Profile tolerances
-             ((:profile-surface :profile-line)
-              `(,(intern (format nil "MAKE-~A-TOLERANCE" (symbol-name gdt-type))
-                         :clad.gdt)
-                ',selector-spec
-                ,tolerance-zone
-                ,@(when datum-refs `(:datum-refs ',datum-refs))
-                :bilateral ,bilateral))
-
-             ;; Runout tolerances
-             ((:circular-runout :total-runout)
-              (unless datum-ref
-                (error "~A requires :datum-ref parameter" gdt-type))
-              `(,(intern (format nil "MAKE-~A-TOLERANCE" (symbol-name gdt-type))
-                         :clad.gdt)
-                ',selector-spec
-                ,tolerance-zone
-                ,datum-ref))
              (t
               (error "Unknown GD&T type: ~A" gdt-type)))))
 

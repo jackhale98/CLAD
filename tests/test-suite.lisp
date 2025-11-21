@@ -9,4 +9,8 @@
   "Run all CLAD tests"
   (run! 'clad-tests))
 
+(defun approximately= (a b tolerance)
+  "Check if two numbers are approximately equal within tolerance."
+  (<= (abs (- a b)) tolerance))
+
 (in-suite clad-tests)

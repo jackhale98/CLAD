@@ -1,9 +1,10 @@
 ;;;; examples/06-advanced-selectors.lisp --- Advanced Selector System Examples
 ;;;;
-;;;; This file demonstrates the full power of CLAD's selector system.
+;;;;This file demonstrates the full power of CLAD's selector system.
 ;;;; Updated for centered primitives!
 ;;;; Run with: (load "examples/06-advanced-selectors.lisp")
 
+(require :asdf)
 (asdf:load-system :clad)
 (in-package :cl-user)
 
@@ -285,3 +286,131 @@
 
 ;; Auto-run when loaded
 (run-selector-demos)
+
+;;; ============================================================================
+;;; Interactive Viewer Integration
+;;; ============================================================================
+
+(defun view-all-selectors ()
+  "Start the viewer and display all advanced selector examples in the browser.
+
+  This function demonstrates:
+  - Direction-based selection (:direction)
+  - Extreme position selection (:extreme)
+  - Type-based selection (:type)
+  - Parallel edge selection (:parallel)
+  - Boolean combinators (AND/OR/NOT)
+  - Nested selector logic for complex filtering"
+
+  (format t "~%~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║      Advanced Selectors Examples - Viewer Integration         ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%")
+
+  ;; Start viewer
+  (format t "Starting CLAD web viewer...~%")
+  (clad:start-viewer)
+  (format t "~%")
+
+  ;; View each selector example
+  (format t "Viewing Direction & Extreme Selection~%")
+  (clad:view (demo-direction-extreme) :name "06-direction-extreme")
+  (sleep 0.5)
+
+  (format t "Viewing Type-Based Selection~%")
+  (clad:view (demo-type-selection) :name "06-type-selection")
+  (sleep 0.5)
+
+  (format t "Viewing Parallel Edge Selection~%")
+  (clad:view (demo-parallel-selection) :name "06-parallel-selection")
+  (sleep 0.5)
+
+  (format t "Viewing Combined Selectors~%")
+  (clad:view (demo-combined-selectors) :name "06-combined")
+  (sleep 0.5)
+
+  (format t "Viewing AND Combinator~%")
+  (clad:view (demo-and-combinator) :name "06-and")
+  (sleep 0.5)
+
+  (format t "Viewing OR Combinator~%")
+  (clad:view (demo-or-combinator) :name "06-or")
+  (sleep 0.5)
+
+  (format t "Viewing NOT Combinator~%")
+  (clad:view (demo-not-combinator) :name "06-not")
+  (sleep 0.5)
+
+  (format t "Viewing Nested Combinators~%")
+  (clad:view (complex-selector-part) :name "06-nested")
+
+  (format t "~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║  All selector examples loaded! http://localhost:8080          ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%"))
+
+;; Individual viewer functions
+(defun view-direction-extreme ()
+  "View direction and extreme selection example"
+  (clad:view (demo-direction-extreme) :name "direction-extreme"))
+
+(defun view-type-selection ()
+  "View type-based edge selection example"
+  (clad:view (demo-type-selection) :name "type-selection"))
+
+(defun view-parallel-selection ()
+  "View parallel edge selection example"
+  (clad:view (demo-parallel-selection) :name "parallel-selection"))
+
+(defun view-combined-selectors ()
+  "View combined selector criteria example"
+  (clad:view (demo-combined-selectors) :name "combined"))
+
+(defun view-and-combinator ()
+  "View AND boolean combinator example"
+  (clad:view (demo-and-combinator) :name "and"))
+
+(defun view-or-combinator ()
+  "View OR boolean combinator example"
+  (clad:view (demo-or-combinator) :name "or"))
+
+(defun view-not-combinator ()
+  "View NOT boolean combinator example"
+  (clad:view (demo-not-combinator) :name "not"))
+
+(defun view-nested-combinators ()
+  "View nested combinator logic example"
+  (clad:view (complex-selector-part) :name "nested"))
+
+;;; ============================================================================
+;;; Quick Start Instructions
+;;; ============================================================================
+
+(format t "~%~%")
+(format t "╔════════════════════════════════════════════════════════════════╗~%")
+(format t "║                     QUICK START GUIDE                          ║~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")
+(format t "To view all advanced selector examples in your browser:~%")
+(format t "  (view-all-selectors)~%")
+(format t "~%")
+(format t "To view individual examples:~%")
+(format t "  (view-direction-extreme)   ; Face selection by direction~%")
+(format t "  (view-type-selection)      ; Edge selection by type~%")
+(format t "  (view-parallel-selection)  ; Edges parallel to axes~%")
+(format t "  (view-combined-selectors)  ; Multiple criteria~%")
+(format t "  (view-and-combinator)      ; All criteria must match~%")
+(format t "  (view-or-combinator)       ; Any criterion can match~%")
+(format t "  (view-not-combinator)      ; Exclude matching entities~%")
+(format t "  (view-nested-combinators)  ; Complex logic combinations~%")
+(format t "~%")
+(format t "Advanced selector capabilities:~%")
+(format t "  - Precise geometric filtering for manufacturing~%")
+(format t "  - Strategic edge finishing (stress relief)~%")
+(format t "  - Feature placement using directional selection~%")
+(format t "  - Complex multi-criteria selection logic~%")
+(format t "~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")

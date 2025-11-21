@@ -147,6 +147,35 @@ Each example file is self-contained and will run demonstrations automatically wh
 (clad:view part1 :name "direction-extreme")
 ```
 
+### 06-advanced-selectors-showcase.lisp - Comprehensive Selector Showcase
+**What you'll learn:**
+- Boolean combinators (`:and`, `:or`, `:not`)
+- Position-based selectors (`:at-z`, `:between-x`, etc.)
+- Face-plane operations (`:on-face-plane`)
+- 2D operations on faces (`:cut-circle`, `:add-rectangle`)
+- Pattern integration with face-planes (`:grid-pattern`, `:circular-pattern`)
+- Debugging and inspection tools
+
+**Examples:**
+1. Servo mounting bracket with face-plane operations
+2. Interactive demonstration function
+3. Boolean combinator examples
+4. Position-based selection showcase
+5. Real-world robotics mounting bracket design
+
+**Features demonstrated:**
+- Phase 1: Boolean combinators (AND/OR/NOT)
+- Phase 2: Position-based selectors
+- Phase 3: Debugging tools (inspect-selection)
+- Phase 4: Face-plane operations with patterns
+
+**Run:**
+```lisp
+(load "examples/06-advanced-selectors-showcase.lisp")
+(clad:view (servo-mounting-bracket) :name "servo-bracket")
+(demonstrate-advanced-selectors)  ; Interactive demo
+```
+
 ## Common Patterns
 
 ### Defining a Parametric Part
@@ -294,8 +323,73 @@ After working through these examples:
 1. **Modify parameters** - Try changing dimensions and counts
 2. **Combine features** - Mix patterns with fillets/chamfers
 3. **Create assemblies** - Build multi-part systems
-4. **Export models** - Use `clad:export` to save as STEP/STL
+4. **Export models** - Use `clad.export:export-step` and `clad.export:export-stl` to save designs
 5. **Build your own** - Apply these patterns to your designs
+
+## Advanced Features
+
+Beyond these examples, CLAD includes powerful production-ready features:
+
+### Thread Modeling
+Create standard threaded features for mechanical assemblies:
+```lisp
+;; External threads (bolts, studs)
+(clad.features:make-external-thread :m6 :length 30)
+
+;; Internal threads (threaded holes)
+(clad.features:make-internal-thread :m8 :depth 25)
+
+;; Calculate tap drill size
+(clad.features:tap-drill-size :m6)  ; => 5.0 mm
+```
+
+**Available standards**: ISO Metric (M3, M6, M8, M10), ISO Metric Fine (M8x1.0, M10x1.25), Unified (1/4-20)
+
+See **USER_GUIDE.md** Section "Thread Modeling" for comprehensive documentation.
+
+### Tolerancing & GD&T
+Full geometric dimensioning and tolerancing per ASME Y14.5:
+```lisp
+;; Establish datum reference frame
+(:datum "A" :on-face :direction :-z :extreme :min)
+
+;; Form tolerances (flatness, straightness, circularity, cylindricity)
+(:flatness :on-face :direction :-z :extreme :min :tolerance 0.05)
+
+;; Orientation tolerances (perpendicularity, parallelism, angularity)
+(:perpendicularity :on-face :direction :+z :extreme :max
+                   :tolerance 0.1 :datum-ref "A")
+
+;; Location tolerances (position, concentricity, symmetry)
+(:position :on-face :type :cylindrical
+           :tolerance 0.2 :datum-refs ("A" "B" "C") :mmc t)
+```
+
+Exports to STEP AP242 with full PMI (Product Manufacturing Information) for CNC machining.
+
+See **USER_GUIDE.md** Section "Tolerancing and GD&T" for comprehensive documentation.
+
+### STL Export for 3D Printing
+Export parts with configurable mesh quality:
+```lisp
+;; Standard export (binary, medium resolution)
+(clad.export:export-stl part "bracket.stl")
+
+;; High detail for precise parts
+(clad.export:export-stl gear "gear.stl" :resolution :high)
+
+;; ASCII format for debugging
+(clad.export:export-stl test "test.stl" :ascii t)
+
+;; Ultra high resolution for tiny features
+(clad.export:export-stl mini "mini.stl" :resolution :ultra)
+```
+
+**Resolution levels**: `:low` (fast), `:medium` (recommended), `:high` (detailed), `:ultra` (maximum)
+
+**Format options**: Binary STL (default, smaller files) or ASCII STL (human-readable)
+
+See **USER_GUIDE.md** Section "STL Export (3D Printing)" for comprehensive documentation.
 
 ## Additional Resources
 
@@ -351,10 +445,11 @@ All example files have been tested and verified to work correctly:
 - **03-fillets-chamfers.lisp**: Removed geometry-problematic size-based example
 - **04-advanced-features.lisp**: Fixed wire construction API (use `make-wire` with line segments)
 - **05-assemblies.lisp**: Updated to use correct assembly API (metadata for descriptions)
-- **06-advanced-selectors.lisp**: NEW - Comprehensive selector system showcase
+- **06-advanced-selectors.lisp**: Comprehensive selector system showcase
+- **06-advanced-selectors-showcase.lisp**: NEW - Boolean combinators, position selectors, and face-plane operations
 
 ---
 
 **Generated:** November 2025
 **CLAD Version:** 1.0.0
-**Total Examples:** 35+ demonstrations across 6 files
+**Total Examples:** 40+ demonstrations across 7 files

@@ -56,4 +56,5 @@
    #:sketch-tests                ; Phase 9 test suite
    #:position-selector-tests     ; Phase 2 test suite
    #:selector-inspection-tests   ; Phase 3 test suite
-   #:face-plane-tests))          ; Phase 4 test suite
+   #:face-plane-tests            ; Phase 4 test suite
+   #:gdt-tests))                 ; Phase T3: Geometric tolerancing

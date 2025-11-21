@@ -54,6 +54,14 @@
                    (:file "conversions")
                    (:file "dimension")))
 
+                 ;; Layer 3.5: GD&T System (Phase T2, T3)
+                 (:module "gdt"
+                  :serial t
+                  :components
+                  ((:file "datums")
+                   (:file "geometric-tolerances")
+                   (:file "validation")))
+
                  ;; Layer 4: CLOS shapes
                  (:module "shapes"
                   :serial t
@@ -97,11 +105,25 @@
                    (:file "patterns")
                    (:file "deffeature")))
 
+                 ;; Layer 5.95: Analysis (Mass Properties)
+                 (:module "analysis"
+                  :serial t
+                  :components
+                  ((:file "mass-properties")))  ; Option 1: Mass properties analysis
+
+                 ;; Layer 5.96: Features (Threads, Fasteners, etc.)
+                 (:module "features"
+                  :serial t
+                  :components
+                  ((:file "threads")))  ; Option 1: Thread modeling
+
                  ;; Layer 6: Export functionality
                  (:module "export"
                   :serial t
                   :components
-                  ((:file "step")))
+                  ((:file "step")
+                   (:file "step-ap242")  ; Phase T4: STEP AP242 PMI export
+                   (:file "stl")))       ; Option 1: STL export for 3D printing
 
                  ;; Layer 7: Viewer
                  (:module "viewer"
@@ -150,6 +172,16 @@
                  (:file "ffi-tests")
                  (:file "core-tests")
                  (:file "units-tests")
+                 (:file "tolerance-tests")            ; Phase T1: Dimensional tolerancing
+                 (:file "datum-tests")                ; Phase T2: Datum system
+                 (:file "gdt-tests")                  ; Phase T3: Geometric tolerancing
+                 (:file "gdt-validation-tests")       ; Priority 1: GD&T validation
+                 (:file "selector-validation-tests")  ; Priority 2: Selector validation
+                 (:file "gdt-edge-cases-tests")       ; Priority 4: Edge case test suite
+                 (:file "step-pmi-tests")             ; Phase T4: STEP AP242 PMI export
+                 (:file "stl-export-tests")           ; Option 1: STL export tests (TDD)
+                 (:file "mass-properties-tests")      ; Option 1: Mass properties tests (TDD)
+                 (:file "thread-tests")               ; Option 1: Thread modeling tests (TDD)
                  (:file "shapes-tests")
                  (:file "selector-tests")
                  (:file "selector-combinator-tests")  ; Phase 1 TDD - AND/OR/NOT combinators

@@ -3,6 +3,7 @@
 ;;;; This file demonstrates the fundamental DSL constructs in CLAD.
 ;;;; Run with: (load "examples/01-basic-dsl.lisp")
 
+(require :asdf)
 (asdf:load-system :clad)
 (in-package :cl-user)
 
@@ -152,3 +153,97 @@
 
 ;; Auto-run when loaded
 (run-basic-demos)
+
+;;; ============================================================================
+;;; Interactive Viewer Integration
+;;; ============================================================================
+
+(defun view-all-examples ()
+  "Start the viewer and display all basic DSL examples in the browser.
+
+  This function will:
+  1. Start the CLAD web viewer (if not already running)
+  2. Open your browser to http://localhost:8080
+  3. Display each example part in sequence
+
+  To view individual examples, use:
+    (view-example-1)  ; Simple box
+    (view-example-2)  ; Box with hole
+    (view-example-3)  ; Base with boss
+    (view-example-4)  ; Bracket with tabs"
+
+  (format t "~%~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║              Interactive Viewer Integration                   ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%")
+
+  ;; Start viewer
+  (format t "Starting CLAD web viewer...~%")
+  (clad:start-viewer)
+  (format t "~%")
+
+  ;; View each example
+  (format t "Viewing Example 1: Simple Parametric Box~%")
+  (clad:view (simple-box) :name "01-simple-box")
+  (sleep 0.5)
+
+  (format t "Viewing Example 2: Box with Hole~%")
+  (clad:view (box-with-hole) :name "01-box-with-hole")
+  (sleep 0.5)
+
+  (format t "Viewing Example 3: Base with Boss~%")
+  (clad:view (base-with-boss) :name "01-base-with-boss")
+  (sleep 0.5)
+
+  (format t "Viewing Example 4: Bracket Base~%")
+  (clad:view (bracket-base) :name "01-bracket-base")
+
+  (format t "~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║  All examples loaded! Open http://localhost:8080 to view      ║~%")
+  (format t "║                                                                ║~%")
+  (format t "║  Use the dropdown menu in the viewer to switch between parts  ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%"))
+
+(defun view-example-1 ()
+  "View Example 1: Simple Parametric Box"
+  (clad:view (simple-box) :name "simple-box"))
+
+(defun view-example-2 ()
+  "View Example 2: Box with Hole"
+  (clad:view (box-with-hole) :name "box-with-hole"))
+
+(defun view-example-3 ()
+  "View Example 3: Base with Boss"
+  (clad:view (base-with-boss) :name "base-with-boss"))
+
+(defun view-example-4 ()
+  "View Example 4: Bracket Base"
+  (clad:view (bracket-base) :name "bracket-base"))
+
+;;; ============================================================================
+;;; Quick Start Instructions
+;;; ============================================================================
+
+(format t "~%~%")
+(format t "╔════════════════════════════════════════════════════════════════╗~%")
+(format t "║                     QUICK START GUIDE                          ║~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")
+(format t "To view all examples in your browser:~%")
+(format t "  (view-all-examples)~%")
+(format t "~%")
+(format t "To view individual examples:~%")
+(format t "  (view-example-1)  ; Simple parametric box~%")
+(format t "  (view-example-2)  ; Box with boolean hole~%")
+(format t "  (view-example-3)  ; Base with boss and hole~%")
+(format t "  (view-example-4)  ; Bracket with directional tabs~%")
+(format t "~%")
+(format t "To create parts with custom parameters:~%")
+(format t "  (clad:view (simple-box 200 100 50) :name \"large-box\")~%")
+(format t "  (clad:view (box-with-hole 150 30) :name \"custom-hole\")~%")
+(format t "~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")

@@ -4,6 +4,7 @@
 ;;;; Updated for centered primitives!
 ;;;; Run with: (load "examples/03-fillets-chamfers.lisp")
 
+(require :asdf)
 (asdf:load-system :clad)
 (in-package :cl-user)
 
@@ -155,3 +156,101 @@
 
 ;; Auto-run when loaded
 (run-fillet-chamfer-demos)
+
+;;; ============================================================================
+;;; Interactive Viewer Integration
+;;; ============================================================================
+
+(defun view-all-fillets ()
+  "Start the viewer and display all fillet/chamfer examples in the browser.
+
+  This function demonstrates:
+  - Selective edge filleting using :on-edge selectors
+  - Chamfering for beveled edges
+  - Type-based selection (:type :line)
+  - Parallel-based selection (:parallel :z)
+  - Combining fillets with other features"
+
+  (format t "~%~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║          Fillet & Chamfer Examples - Viewer Integration       ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%")
+
+  ;; Start viewer
+  (format t "Starting CLAD web viewer...~%")
+  (clad:start-viewer)
+  (format t "~%")
+
+  ;; View each fillet/chamfer example
+  (format t "Viewing Simple Filleted Box~%")
+  (clad:view (simple-filleted-box) :name "03-simple-fillet")
+  (sleep 0.5)
+
+  (format t "Viewing Selective Filleted Plate~%")
+  (clad:view (selective-filleted-plate) :name "03-selective-fillet")
+  (sleep 0.5)
+
+  (format t "Viewing Simple Chamfered Box~%")
+  (clad:view (simple-chamfered-box) :name "03-simple-chamfer")
+  (sleep 0.5)
+
+  (format t "Viewing Part with Boss and Fillets~%")
+  (clad:view (part-with-boss-and-fillets) :name "03-boss-fillets")
+  (sleep 0.5)
+
+  (format t "Viewing Filleted Mounting Bracket~%")
+  (clad:view (filleted-bracket) :name "03-filleted-bracket")
+
+  (format t "~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║  All fillet/chamfer examples loaded! http://localhost:8080    ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%"))
+
+;; Individual viewer functions for each fillet/chamfer example
+(defun view-simple-fillet ()
+  "View simple fillet example (vertical edges)"
+  (clad:view (simple-filleted-box) :name "simple-fillet"))
+
+(defun view-selective-fillet ()
+  "View selective fillet example (type-based selection)"
+  (clad:view (selective-filleted-plate) :name "selective-fillet"))
+
+(defun view-simple-chamfer ()
+  "View simple chamfer example"
+  (clad:view (simple-chamfered-box) :name "simple-chamfer"))
+
+(defun view-boss-fillets ()
+  "View part with boss and filleted edges"
+  (clad:view (part-with-boss-and-fillets) :name "boss-fillets"))
+
+(defun view-filleted-bracket ()
+  "View practical filleted mounting bracket"
+  (clad:view (filleted-bracket) :name "filleted-bracket"))
+
+;;; ============================================================================
+;;; Quick Start Instructions
+;;; ============================================================================
+
+(format t "~%~%")
+(format t "╔════════════════════════════════════════════════════════════════╗~%")
+(format t "║                     QUICK START GUIDE                          ║~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")
+(format t "To view all fillet/chamfer examples in your browser:~%")
+(format t "  (view-all-fillets)~%")
+(format t "~%")
+(format t "To view individual examples:~%")
+(format t "  (view-simple-fillet)       ; Filleted vertical edges~%")
+(format t "  (view-selective-fillet)    ; Type-based edge selection~%")
+(format t "  (view-simple-chamfer)      ; Chamfered edges~%")
+(format t "  (view-boss-fillets)        ; Complex part with fillets~%")
+(format t "  (view-filleted-bracket)    ; Practical example~%")
+(format t "~%")
+(format t "Create custom fillet sizes:~%")
+(format t "  (clad:view (simple-filleted-box :fillet-radius 10.0d0) :name \"big-fillet\")~%")
+(format t "  (clad:view (simple-chamfered-box :chamfer-distance 5.0d0) :name \"big-chamfer\")~%")
+(format t "~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")

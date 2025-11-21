@@ -5,6 +5,7 @@
 ;;;; independent of primitive centering changes.
 ;;;; Run with: (load "examples/04-advanced-features.lisp")
 
+(require :asdf)
 (asdf:load-system :clad)
 (in-package :cl-user)
 
@@ -235,3 +236,122 @@
 
 ;; Auto-run when loaded
 (run-advanced-demos)
+
+;;; ============================================================================
+;;; Interactive Viewer Integration
+;;; ============================================================================
+
+(defun view-all-advanced ()
+  "Start the viewer and display all advanced feature examples in the browser.
+
+  This function demonstrates:
+  - Lofting between 2+ profiles for smooth transitions
+  - Multi-section lofts for complex organic shapes
+  - Sweeping profiles along paths
+  - Pipe creation along spline curves
+  - Combining lofts with boolean operations
+  - Real-world applications (handles, ducts, funnels)"
+
+  (format t "~%~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║        Advanced Features Examples - Viewer Integration        ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%")
+
+  ;; Start viewer
+  (format t "Starting CLAD web viewer...~%")
+  (clad:start-viewer)
+  (format t "~%")
+
+  ;; View each advanced feature example
+  (format t "Viewing Simple Loft (square to circle)~%")
+  (clad:view (demo-simple-loft) :name "04-simple-loft")
+  (sleep 0.5)
+
+  (format t "Viewing Multi-Section Loft~%")
+  (clad:view (demo-multi-section-loft) :name "04-multi-loft")
+  (sleep 0.5)
+
+  (format t "Viewing Sweep Along Path~%")
+  (clad:view (demo-sweep-path) :name "04-sweep")
+  (sleep 0.5)
+
+  (format t "Viewing Pipe~%")
+  (clad:view (demo-pipe) :name "04-pipe")
+  (sleep 0.5)
+
+  (format t "Viewing Hollow Funnel (loft + boolean)~%")
+  (clad:view (demo-loft-with-boolean) :name "04-funnel")
+  (sleep 0.5)
+
+  (format t "Viewing Swept Handle~%")
+  (clad:view (demo-swept-handle) :name "04-handle")
+  (sleep 0.5)
+
+  (format t "Viewing Transition Duct~%")
+  (clad:view (demo-transition-duct) :name "04-duct")
+
+  (format t "~%")
+  (format t "╔════════════════════════════════════════════════════════════════╗~%")
+  (format t "║  All advanced feature examples loaded! http://localhost:8080  ║~%")
+  (format t "╚════════════════════════════════════════════════════════════════╝~%")
+  (format t "~%"))
+
+;; Individual viewer functions for each advanced feature example
+(defun view-loft ()
+  "View simple loft example (square to circle transition)"
+  (clad:view (demo-simple-loft) :name "simple-loft"))
+
+(defun view-multi-loft ()
+  "View multi-section loft example"
+  (clad:view (demo-multi-section-loft) :name "multi-loft"))
+
+(defun view-sweep ()
+  "View sweep along path example"
+  (clad:view (demo-sweep-path) :name "sweep"))
+
+(defun view-pipe ()
+  "View pipe example"
+  (clad:view (demo-pipe) :name "pipe"))
+
+(defun view-funnel ()
+  "View hollow funnel example (loft with boolean)"
+  (clad:view (demo-loft-with-boolean) :name "funnel"))
+
+(defun view-handle ()
+  "View swept handle example"
+  (clad:view (demo-swept-handle) :name "handle"))
+
+(defun view-duct ()
+  "View transition duct example"
+  (clad:view (demo-transition-duct) :name "duct"))
+
+;;; ============================================================================
+;;; Quick Start Instructions
+;;; ============================================================================
+
+(format t "~%~%")
+(format t "╔════════════════════════════════════════════════════════════════╗~%")
+(format t "║                     QUICK START GUIDE                          ║~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")
+(format t "To view all advanced feature examples in your browser:~%")
+(format t "  (view-all-advanced)~%")
+(format t "~%")
+(format t "To view individual examples:~%")
+(format t "  (view-loft)        ; Square to circle transition~%")
+(format t "  (view-multi-loft)  ; Multi-section loft~%")
+(format t "  (view-sweep)       ; Profile swept along path~%")
+(format t "  (view-pipe)        ; Pipe along spline~%")
+(format t "  (view-funnel)      ; Hollow funnel (boolean)~%")
+(format t "  (view-handle)      ; Ergonomic handle~%")
+(format t "  (view-duct)        ; HVAC transition duct~%")
+(format t "~%")
+(format t "Advanced features enable:~%")
+(format t "  - Smooth transitions between different profiles~%")
+(format t "  - Organic shapes that can't be made with primitives~%")
+(format t "  - Following complex paths in 3D space~%")
+(format t "  - Industrial applications (ducts, handles, enclosures)~%")
+(format t "~%")
+(format t "╚════════════════════════════════════════════════════════════════╝~%")
+(format t "~%")

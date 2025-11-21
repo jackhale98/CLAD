@@ -15,10 +15,11 @@ A comprehensive guide to designing parametric CAD models with CLAD.
 9. [Patterns](#patterns)
 10. [Edge Operations](#edge-operations)
 11. [Advanced Features](#advanced-features)
-12. [2D Sketching](#2d-sketching)
-13. [Assemblies](#assemblies)
-14. [Viewing and Export](#viewing-and-export)
-15. [Best Practices](#best-practices)
+12. [Tolerancing and GD&T](#tolerancing-and-gdt)
+13. [2D Sketching](#2d-sketching)
+14. [Assemblies](#assemblies)
+15. [Viewing and Export](#viewing-and-export)
+16. [Best Practices](#best-practices)
 
 ---
 
@@ -297,18 +298,49 @@ Select edges parallel to an axis:
   (:chamfer 1.0d0))
 ```
 
-**Combining selectors:**
+**Boolean combinators:**
 
-You can combine multiple selector criteria (they work as AND):
+Combine selectors using logical operators:
 
 ```lisp
-;; Select straight edges that are parallel to X
-(:on-edge :type :line :parallel :x
+;; AND - match ALL criteria
+(:on-face :and :type :plane :direction :+z
+  (:add (clad.core:make-cylinder 10 20)))
+
+;; OR - match ANY criteria
+(:on-edge :or :parallel :x :parallel :z
   (:fillet 4.0d0))
 
-;; Select planar faces pointing up
-(:on-face :type :planar :direction :+z :extreme :max
-  (:add (clad.core:make-cylinder 10 20)))
+;; NOT - exclude matches
+(:on-face :not :type :cylinder
+  (:chamfer 2.0d0))
+
+;; Nested combinators
+(:on-edge :and :type :line
+               :not :parallel :z
+  (:fillet 3.0d0))
+```
+
+**Position-based selectors:**
+
+Select by coordinate position:
+
+```lisp
+;; Select faces at specific Z height
+(:on-face :at-z 50.0 :tolerance 0.1
+  (:cut (clad.core:make-cylinder 5 10)))
+
+;; Select faces within Z range
+(:on-face :between-z 10.0 40.0
+  (:add ...))
+
+;; Select faces within bounding box
+(:on-face :within-box '(-10 -10 0) '(10 10 50)
+  (:chamfer 1.0))
+
+;; Select faces near a point
+(:on-face :near-point '(50 50 20) :radius 25.0
+  (:fillet 5.0))
 ```
 
 ### Practical Selector Examples
@@ -705,6 +737,113 @@ Example - ventilation grid:
 
 ---
 
+## Face-Plane Operations
+
+CLAD provides a lightweight workplane system for creating features directly on faces with automatic centering and alignment.
+
+### The :on-face-plane Context
+
+Establish a local 2D coordinate system on a selected face:
+
+```lisp
+(:on-face-plane <selector-spec>
+  <2D operations>)
+```
+
+The face's center becomes the origin (0, 0), and the face normal becomes the Z-axis.
+
+### Basic 2D Operations
+
+**Cut circular holes:**
+```lisp
+(:on-face-plane :direction :+z :extreme :max
+  (:cut-circle radius :depth depth))
+```
+
+**Add circular bosses:**
+```lisp
+(:on-face-plane :direction :+z :extreme :max
+  (:add-circle radius :height height))
+```
+
+**Cut rectangular pockets:**
+```lisp
+(:on-face-plane :direction :+z :extreme :max
+  (:cut-rectangle width height :depth depth))
+```
+
+**Add rectangular bosses:**
+```lisp
+(:on-face-plane :direction :+z :extreme :max
+  (:add-rectangle width height :height height))
+```
+
+### Patterns on Faces
+
+Patterns work seamlessly in face-plane context:
+
+**Grid pattern of holes:**
+```lisp
+(clad.dsl:defpart perforated-plate ((size 150))
+  "Plate with grid of holes"
+  (:body (clad.core:make-box size size 10))
+
+  (:on-face-plane :direction :+z :extreme :max
+    (:grid-pattern :x-count 10 :y-count 10
+                   :x-spacing 12 :y-spacing 12
+      (:cut-circle 2 :depth 8))))
+```
+
+**Circular bolt pattern:**
+```lisp
+(clad.dsl:defpart flange ((diameter 120))
+  "Flange with bolt circle"
+  (:body (clad.core:make-cylinder (/ diameter 2) 15))
+
+  (:on-face-plane :direction :+z :extreme :max
+    (:circular-pattern :count 6 :radius (* diameter 0.35)
+      (:cut-circle 4 :depth 20))))
+```
+
+### Example: Servo Mounting Bracket
+
+```lisp
+(clad.dsl:defpart servo-mount
+    ((base-width 80)
+     (base-depth 60)
+     (base-thickness 6)
+     (riser-height 25)
+     (servo-spacing 48))
+  "Professional servo motor mounting bracket"
+
+  ;; Base plate
+  (:body (clad.core:make-box base-width base-depth base-thickness))
+
+  ;; Raised platform
+  (:body (clad.core:translate
+          (clad.core:make-box 55 45 riser-height)
+          0 0 base-thickness))
+
+  ;; Cable management slot on back face
+  (:on-face-plane :direction :-y :extreme :min
+    (:cut-rectangle 8 4 :depth 3))
+
+  ;; Servo mounting holes on top
+  (:on-face-plane :direction :+z :extreme :max
+    (:grid-pattern :x-count 2 :y-count 2
+                   :x-spacing servo-spacing :y-spacing 10
+      (:cut-circle 1.5 :depth 33))))  ; M3 holes
+```
+
+### Advantages of Face-Plane Operations
+
+1. **Automatic centering** - No manual position calculations
+2. **Face-relative coordinates** - Features move with the face
+3. **Clean syntax** - More readable than manual translation
+4. **Pattern-friendly** - Grid and circular patterns "just work"
+
+---
+
 ## Edge Operations
 
 Round or bevel edges for aesthetics and to reduce stress concentrations.
@@ -897,6 +1036,343 @@ Example:
 (clad.core:make-spline '((0 0 10) (20 20 10) (20 -20 10) (-20 -20 10))
                        :closed t)
 ```
+
+---
+
+## Tolerancing and GD&T
+
+CLAD includes comprehensive support for Geometric Dimensioning and Tolerancing (GD&T) per ASME Y14.5, enabling production-ready CAD models with manufacturing specifications.
+
+### Overview
+
+GD&T support in CLAD includes:
+- **Datum Features** - Define measurement reference frames (A, B, C)
+- **Form Tolerances** - Control shape (flatness, straightness, circularity, cylindricity)
+- **Orientation Tolerances** - Control orientation (perpendicularity, parallelism, angularity)
+- **Location Tolerances** - Control position (position, concentricity, symmetry)
+- **Profile Tolerances** - Control surface and line profiles
+- **Runout Tolerances** - Control surface variation during rotation
+- **STEP Export** - Export parts with Product Manufacturing Information (PMI)
+
+### Defining Datums
+
+Datums establish a coordinate reference system for measurement. Define datums on faces using the `:datum` form:
+
+```lisp
+(clad.dsl:defpart machined-block ((size 100))
+  "Block with datum reference frame"
+  (:body (clad.core:make-box size size (* size 0.3)))
+
+  ;; Primary datum - largest flattest surface (bottom face)
+  (:datum "A" :on-face :direction :-z :extreme :min)
+
+  ;; Secondary datum - perpendicular to primary
+  (:datum "B" :on-face :direction :+x :extreme :max)
+
+  ;; Tertiary datum - completes the 3-2-1 datum scheme
+  (:datum "C" :on-face :direction :+y :extreme :max))
+```
+
+**Datum with material condition modifier:**
+```lisp
+;; Datum at Maximum Material Condition (MMC)
+(:datum "D" :on-face :direction :+z :extreme :max :mmc t)
+```
+
+### Form Tolerances
+
+Form tolerances control the shape of features without reference to datums.
+
+**Flatness** - Surface must lie within two parallel planes:
+```lisp
+(clad.dsl:defpart flat-plate ((width 150))
+  (:body (clad.core:make-box width width 10))
+
+  (:datum "A" :on-face :direction :-z :extreme :min)
+
+  ;; Top surface flatness within 0.05mm
+  (:flatness :on-face :direction :+z :extreme :max
+             :tolerance 0.05))
+```
+
+**Straightness** - Line elements must be straight within tolerance zone:
+```lisp
+(:straightness :on-edge :parallel :z
+               :tolerance 0.02)
+```
+
+**Circularity** - Circular cross-sections must be within tolerance:
+```lisp
+(:circularity :on-face :type :cylindrical
+              :tolerance 0.01)
+```
+
+**Cylindricity** - Cylindrical surface must be within coaxial tolerance zone:
+```lisp
+(clad.dsl:defpart precision-shaft ((diameter 25) (length 100))
+  (:body (clad.core:make-cylinder (/ diameter 2) length))
+
+  ;; Entire cylindrical surface within 0.02mm
+  (:cylindricity :on-face :type :cylindrical
+                 :tolerance 0.02))
+```
+
+### Orientation Tolerances
+
+Orientation tolerances control the relationship between features and datums.
+
+**Perpendicularity** - Feature must be perpendicular to datum:
+```lisp
+(clad.dsl:defpart mounting-block ((size 80))
+  (:body (clad.core:make-box size size 30))
+
+  (:datum "A" :on-face :direction :-z :extreme :min)
+
+  ;; Side face perpendicular to datum A within 0.1mm
+  (:perpendicularity :on-face :direction :+x :extreme :max
+                     :tolerance 0.1
+                     :datum-ref "A"))
+```
+
+**Parallelism** - Feature must be parallel to datum:
+```lisp
+(:parallelism :on-face :direction :+z :extreme :max
+              :tolerance 0.05
+              :datum-ref "A")
+```
+
+**Angularity** - Feature must be at specified angle to datum:
+```lisp
+(:angularity :on-face :direction :+x :extreme :max
+             :tolerance 0.08
+             :datum-ref "A"
+             :angle 45.0)  ; 45 degrees
+```
+
+### Location Tolerances
+
+Location tolerances control the position of features relative to datums.
+
+**Position** - Feature location must be within tolerance zone from true position:
+```lisp
+(clad.dsl:defpart bolt-hole-plate ((size 100))
+  (:body (clad.core:make-box size size 10))
+
+  (:datum "A" :on-face :direction :-z :extreme :min)
+  (:datum "B" :on-face :direction :+x :extreme :max)
+  (:datum "C" :on-face :direction :+y :extreme :max)
+
+  ;; Centered hole
+  (:on-face :direction :+z :extreme :max
+    (:cut (clad.core:translate
+            (clad.core:make-cylinder 5 15)
+            (/ size 2) (/ size 2) 0)))
+
+  ;; Position tolerance: hole center within ⌀0.2mm at true position
+  (:position :on-face :type :cylindrical
+             :tolerance 0.2
+             :datum-refs ("A" "B" "C")))
+```
+
+**Position with MMC (Maximum Material Condition):**
+```lisp
+(:position :on-face :type :cylindrical
+           :tolerance 0.5
+           :datum-refs ("A" "B" "C")
+           :mmc t)  ; Allows bonus tolerance
+```
+
+**Concentricity** - Feature axis must align with datum axis:
+```lisp
+(:concentricity :on-face :type :cylindrical
+                :tolerance 0.05
+                :datum-ref "A")
+```
+
+**Symmetry** - Feature must be symmetrical about datum plane:
+```lisp
+(:symmetry :on-face :direction :+x :extreme :max
+           :tolerance 0.1
+           :datum-ref "A")
+```
+
+### Profile Tolerances
+
+Profile tolerances define a 3D tolerance zone around a nominal surface or 2D zone for line profiles.
+
+**Profile of a Surface** - 3D tolerance zone around nominal surface:
+```lisp
+(clad.dsl:defpart contoured-part ((width 100))
+  (:body (clad.core:make-box width width 25))
+
+  (:datum "A" :on-face :direction :-z :extreme :min)
+  (:datum "B" :on-face :direction :+x :extreme :max)
+
+  ;; Contoured top surface profile
+  (:profile-surface :on-face :direction :+z :extreme :max
+                    :tolerance 0.1
+                    :datum-refs ("A" "B")
+                    :bilateral t))  ; Equal +/- from nominal
+```
+
+**Unilateral profile tolerance:**
+```lisp
+;; Tolerance only outside nominal surface
+(:profile-surface :on-face :direction :+z :extreme :max
+                  :tolerance 0.15
+                  :datum-refs ("A" "B")
+                  :bilateral nil)
+```
+
+**Profile of a Line** - 2D tolerance zone in cutting plane:
+```lisp
+(:profile-line :on-face :direction :+y :extreme :max
+               :tolerance 0.08
+               :datum-refs ("A")
+               :bilateral t)
+```
+
+### Runout Tolerances
+
+Runout tolerances control surface variation when a part rotates about a datum axis.
+
+**Circular Runout** - Full Indicator Movement (FIM) at individual circular elements:
+```lisp
+(clad.dsl:defpart rotating-shaft ((diameter 30) (length 120))
+  (:body (clad.core:make-cylinder (/ diameter 2) length))
+
+  ;; Datum axis from one end face
+  (:datum "A" :on-face :direction :-z :extreme :min)
+
+  ;; Circular runout of cylindrical surface
+  (:circular-runout :on-face :type :cylindrical
+                    :tolerance 0.05
+                    :datum-ref "A"))
+```
+
+**Total Runout** - Composite surface variation (combines circularity, straightness, coaxiality):
+```lisp
+(clad.dsl:defpart precision-spindle ((diameter 25) (length 100))
+  (:body (clad.core:make-cylinder (/ diameter 2) length))
+
+  (:datum "A" :on-face :direction :-z :extreme :min)
+  (:datum "B" :on-face :direction :+z :extreme :max)
+
+  ;; Total runout relative to datum axis A-B
+  (:total-runout :on-face :type :cylindrical
+                 :tolerance 0.02
+                 :datum-ref "A"))
+```
+
+### Complete Example: Production Part
+
+Here's a complete example demonstrating datums and multiple GD&T callouts:
+
+```lisp
+(clad.dsl:defpart production-mount
+    ((base-width 150)
+     (base-height 100)
+     (base-thickness 12)
+     (boss-diameter 40)
+     (boss-height 25)
+     (hole-diameter 8))
+  "Production mounting bracket with full GD&T specification"
+
+  ;; Base plate
+  (:body (clad.core:make-box base-width base-height base-thickness))
+
+  ;; Central mounting boss
+  (:on-face :direction :+z :extreme :max
+    (:add (clad.core:translate
+            (clad.core:make-cylinder (/ boss-diameter 2) boss-height)
+            (/ base-width 2) (/ base-height 2) base-thickness)))
+
+  ;; Through hole in boss
+  (:on-face :direction :+z :extreme :max
+    (:cut (clad.core:translate
+            (clad.core:make-cylinder (/ hole-diameter 2) 50)
+            (/ base-width 2) (/ base-height 2) 0)))
+
+  ;; Datum Reference Frame (A-B-C)
+  (:datum "A" :on-face :direction :-z :extreme :min)  ; Primary: bottom face
+  (:datum "B" :on-face :direction :+x :extreme :max)  ; Secondary: right face
+  (:datum "C" :on-face :direction :+y :extreme :max)  ; Tertiary: back face
+
+  ;; Form tolerance: Bottom face flatness
+  (:flatness :on-face :direction :-z :extreme :min
+             :tolerance 0.05)
+
+  ;; Orientation: Top face perpendicular to datum A
+  (:perpendicularity :on-face :direction :+z :extreme :max
+                     :tolerance 0.1
+                     :datum-ref "A")
+
+  ;; Orientation: Side face parallel to datum B
+  (:parallelism :on-face :direction :-x :extreme :min
+                :tolerance 0.08
+                :datum-ref "B")
+
+  ;; Location: Boss position relative to datum frame
+  (:position :on-face :type :cylindrical
+             :tolerance 0.2
+             :datum-refs ("A" "B" "C")
+             :mmc t)
+
+  ;; Profile: Boss top surface profile
+  (:profile-surface :on-face :direction :+z :extreme :max
+                    :tolerance 0.15
+                    :datum-refs ("A")
+                    :bilateral t)
+
+  ;; Runout: Boss cylindrical surface
+  (:circular-runout :on-face :type :cylindrical
+                    :tolerance 0.1
+                    :datum-ref "A"))
+```
+
+### Exporting with GD&T
+
+When you export to STEP format, all datum and tolerance information is included as Product Manufacturing Information (PMI):
+
+```lisp
+(defparameter *production-part* (production-mount))
+(clad.export:export-step *production-part* "output/production-mount.step")
+```
+
+The exported STEP file includes:
+- Geometry (solid model)
+- Datum feature definitions
+- Geometric tolerance callouts
+- Material condition modifiers
+- Datum reference frames
+
+These can be viewed in CAD software that supports STEP AP242 with PMI (FreeCAD, SolidWorks, etc.).
+
+### Best Practices for GD&T
+
+**1. Establish a proper datum reference frame:**
+- Primary datum (A): Typically the largest, most stable surface
+- Secondary datum (B): Perpendicular to primary, second most important
+- Tertiary datum (C): Completes the 3-2-1 datum scheme
+
+**2. Use form tolerances before orientation/location:**
+- Control form first (flatness, straightness)
+- Then control orientation (perpendicularity, parallelism)
+- Finally control location (position)
+
+**3. Choose appropriate tolerance values:**
+- Consider manufacturing capabilities
+- Tighter tolerances = higher cost
+- Use tolerance analysis for critical dimensions
+
+**4. Leverage material condition modifiers (MMC/LMC):**
+- MMC allows bonus tolerance as features depart from maximum material
+- Useful for hole patterns with fasteners
+- Can reduce manufacturing cost
+
+**5. Document intent:**
+- Add comments explaining why specific tolerances are needed
+- Reference relevant standards (ASME Y14.5, ISO 1101)
 
 ---
 
@@ -1252,6 +1728,421 @@ STEP files can be opened in:
 - OnShape
 - CAM software for CNC machining
 
+### STL Export (3D Printing)
+
+Export to STL format for 3D printing:
+
+```lisp
+(clad.export:export-stl part filepath &key (ascii nil) (resolution :medium))
+```
+
+STL (STereoLithography) is the standard format for 3D printing, containing a triangulated mesh representation of your model.
+
+**Resolution options:**
+- `:low` - Fast export, coarse mesh (0.5mm linear, 1.0° angular)
+- `:medium` - Balanced quality/size (0.1mm linear, 0.5° angular) - **recommended**
+- `:high` - High detail (0.05mm linear, 0.25° angular)
+- `:ultra` - Maximum detail (0.01mm linear, 0.1° angular)
+
+**Format options:**
+- Binary STL (default, `:ascii nil`) - Smaller files, faster processing
+- ASCII STL (`:ascii t`) - Human-readable, easier to debug
+
+**Examples:**
+
+```lisp
+;; Standard 3D printing export (binary, medium resolution)
+(defparameter *bracket* (mounting-bracket :width 80))
+(clad.export:export-stl *bracket* "output/bracket.stl")
+
+;; High detail for precise parts
+(defparameter *gear* (spur-gear :teeth 20))
+(clad.export:export-stl *gear* "output/gear.stl" :resolution :high)
+
+;; ASCII format for debugging
+(clad.export:export-stl *test-part* "debug/test.stl" :ascii t :resolution :low)
+
+;; Low resolution for quick preview
+(clad.export:export-stl *assembly* "preview.stl" :resolution :low)
+```
+
+**3D Printing Workflow:**
+
+1. Design part in CLAD
+2. Export to STL: `(clad.export:export-stl my-part "part.stl" :resolution :high)`
+3. Import STL into slicer software (Cura, PrusaSlicer, etc.)
+4. Generate G-code for your printer
+5. Print!
+
+**Resolution Guidelines:**
+
+Choose resolution based on your needs:
+- **:low** - Draft prints, large models, visualization (fast, small files)
+- **:medium** - Most 3D printing applications (balanced)
+- **:high** - Fine details, small features, precision parts (larger files, slower slicing)
+- **:ultra** - Ultra-high-resolution prints, inspection (very large files)
+
+**Compatibility:**
+
+STL files work with all 3D printing software:
+- Slicers: Cura, PrusaSlicer, Simplify3D, etc.
+- Mesh tools: Meshmixer, Netfabb, etc.
+- CAD: FreeCAD, SolidWorks, Fusion 360, etc.
+- Viewers: MeshLab, Blender, etc.
+
+**Notes:**
+- Higher resolution = more triangles = larger files = slower slicing
+- STL files contain only geometry (no color, material metadata)
+- STL represents surfaces as triangle meshes (not exact B-Rep geometry)
+- Binary format is ~5x smaller than ASCII
+
+---
+
+### Mass Properties Analysis
+
+Calculate mass, volume, and other engineering properties for parts:
+
+```lisp
+(clad.analysis:mass-properties shape &key (material nil) (density 1.0))
+```
+
+Mass properties are essential for engineering analysis, weight estimation, and BOM generation. CLAD calculates exact properties using OpenCASCADE's geometry engine (not approximate mesh-based methods).
+
+**Returned properties:**
+- `:volume` - Volume in mm³
+- `:surface-area` - Surface area in mm²
+- `:mass` - Mass in grams
+- `:density` - Density used (g/cm³)
+- `:center-of-mass` - Center of mass coordinates `(x y z)` in mm
+- `:inertia` - Moment of inertia tensor (3×3 matrix)
+- `:material-name` - Material name string
+
+**Examples:**
+
+```lisp
+;; Basic volume and mass calculation
+(defparameter *box* (clad.core:make-box 100 50 20))
+(defparameter *props* (clad.analysis:mass-properties *box* :material :aluminum))
+
+(getf *props* :volume)        ; => 100000.0 (mm³)
+(getf *props* :mass)           ; => 270.0 (grams)
+(getf *props* :material-name)  ; => "Aluminum 6061"
+
+;; Custom density
+(clad.analysis:mass-properties *box* :density 5.0)  ; 5.0 g/cm³
+
+;; Different materials
+(clad.analysis:mass-properties *part* :material :steel)
+(clad.analysis:mass-properties *part* :material :pla)
+```
+
+**Built-in Material Database:**
+
+CLAD includes common engineering materials (densities in g/cm³):
+
+| Material | Keyword | Density (g/cm³) |
+|----------|---------|-----------------|
+| Aluminum 6061 | `:aluminum` | 2.70 |
+| Steel 1018 | `:steel` | 7.87 |
+| Stainless Steel 304 | `:stainless` | 8.00 |
+| ABS Plastic | `:abs` | 1.05 |
+| PLA Plastic | `:pla` | 1.24 |
+| Brass | `:brass` | 8.50 |
+| Copper | `:copper` | 8.96 |
+| Titanium Grade 5 | `:titanium` | 4.43 |
+| Nylon 6 | `:nylon` | 1.14 |
+| PETG Plastic | `:petg` | 1.27 |
+
+List all materials:
+```lisp
+(clad.analysis:list-materials)
+; => (:aluminum :steel :stainless :abs :pla :brass :copper :titanium :nylon :petg)
+```
+
+**Convenience Functions:**
+
+For quick queries, use these wrappers:
+
+```lisp
+;; Volume only
+(clad.analysis:volume *part*)  ; mm³
+
+;; Surface area only
+(clad.analysis:surface-area *part*)  ; mm²
+
+;; Mass only
+(clad.analysis:mass *part* :material :steel)  ; grams
+
+;; Center of mass
+(clad.analysis:center-of-mass *part*)  ; (x y z)
+
+;; Inertia tensor
+(clad.analysis:inertia *part* :material :aluminum)  ; 3×3 matrix
+```
+
+**Assembly Mass Properties:**
+
+Calculate total mass for multi-material assemblies:
+
+```lisp
+(defparameter *aluminum-base* (clad.core:make-box 100 100 10))
+(defparameter *steel-bracket* (clad.core:make-box 50 50 5))
+
+(let ((base-props (clad.analysis:mass-properties *aluminum-base* :material :aluminum))
+      (bracket-props (clad.analysis:mass-properties *steel-bracket* :material :steel)))
+  (+ (getf base-props :mass) (getf bracket-props :mass)))
+; => Total assembly mass in grams
+```
+
+**Custom Materials:**
+
+Define custom materials for your application:
+
+```lisp
+(clad.analysis:define-material :custom-alloy "Special Alloy XJ-7" 6.5)
+(clad.analysis:mass-properties *part* :material :custom-alloy)
+```
+
+**Practical Example - Weight Estimation:**
+
+```lisp
+(clad.dsl:defpart drone-frame ((arm-length 300) (tube-diameter 10))
+  "Quadcopter frame"
+  (:body (clad.core:make-box 100 100 10))  ; Center plate
+
+  ;; Four arms
+  (:on-face :direction :+z :extreme :max
+    (:grid-pattern :count-x 2 :count-y 2
+                   :spacing-x 90 :spacing-y 90
+      (:add (clad.core:make-cylinder (/ tube-diameter 2) arm-length)))))
+
+;; Calculate frame weight
+(defparameter *frame* (drone-frame))
+(defparameter *frame-props*
+  (clad.analysis:mass-properties *frame* :material :aluminum))
+
+(format t "Frame weight: ~,1f grams~%" (getf *frame-props* :mass))
+(format t "Frame volume: ~,1f cm³~%" (/ (getf *frame-props* :volume) 1000.0))
+(format t "Center of mass: ~A~%" (getf *frame-props* :center-of-mass))
+```
+
+**Engineering Applications:**
+
+1. **Weight Budgets** - Ensure parts meet weight requirements
+2. **Material Selection** - Compare weight vs. strength trade-offs
+3. **Center of Mass** - Balance analysis for rotating parts
+4. **Inertia Calculations** - Dynamics and motion analysis
+5. **Cost Estimation** - Calculate material cost from volume and density
+6. **BOM Generation** - Accurate weight data for assemblies
+
+**Unit Conversions:**
+
+Mass properties use metric units:
+- Volume: mm³ (cubic millimeters)
+- Mass: grams
+- Density: g/cm³
+- Length: mm (millimeters)
+
+Common conversions:
+```lisp
+;; mm³ to cm³
+(/ volume-mm3 1000.0)
+
+;; grams to kilograms
+(/ mass-g 1000.0)
+
+;; grams to pounds
+(/ mass-g 453.592)
+```
+
+---
+
+### Thread Modeling
+
+Create standard threaded features (bolts, holes, nuts) for mechanical assemblies. CLAD includes a database of common thread standards and functions for thread creation.
+
+**Thread Types Supported:**
+- ISO Metric (M3, M6, M8, M10, etc.)
+- ISO Metric Fine (M8x1.0, M10x1.25, etc.)
+- Unified (UNC/UNF: 1/4-20, #10-32, etc.)
+
+**Basic Thread Creation:**
+
+```lisp
+(clad.features:make-external-thread designation &key length (cosmetic nil))
+(clad.features:make-internal-thread designation &key depth (cosmetic nil))
+```
+
+**Examples:**
+
+```lisp
+;; External thread (bolt, stud)
+(defparameter *m6-bolt*
+  (clad.features:make-external-thread :m6 :length 30))
+
+;; Internal thread (threaded hole)
+(defparameter *m8-hole*
+  (clad.features:make-internal-thread :m8 :depth 25))
+
+;; Unified thread
+(defparameter *quarter-20-bolt*
+  (clad.features:make-external-thread :1/4-20 :length 25.4))  ; 1 inch
+```
+
+**Thread Database:**
+
+List available thread standards:
+
+```lisp
+(clad.features:list-thread-specs)
+; => (:m3 :m6 :m8 :m10 :m8x1.0 :m10x1.25 :1/4-20)
+```
+
+Get thread parameters:
+
+```lisp
+(clad.features:get-thread-spec :m6)
+; => (:major-diameter 6.0 :pitch 1.0 :standard "ISO Metric")
+
+(clad.features:get-thread-spec :m8x1.0)
+; => (:major-diameter 8.0 :pitch 1.0 :standard "ISO Metric Fine")
+```
+
+**Thread Calculations:**
+
+Calculate minor diameter and tap drill size:
+
+```lisp
+;; Minor diameter (root of thread)
+(clad.features:thread-minor-diameter :m6)
+; => 4.917 (mm)
+
+;; Recommended tap drill size
+(clad.features:tap-drill-size :m6)
+; => 5.0 (mm)
+
+(clad.features:tap-drill-size :m8)
+; => 6.75 (mm)
+```
+
+**Practical Example - Threaded Part:**
+
+```lisp
+(clad.dsl:defpart threaded-standoff
+    ((body-diameter 10)
+     (body-length 30)
+     (thread-length 8))
+  "Standoff with M4 external threads on both ends"
+
+  ;; Main body
+  (:body (clad.core:make-cylinder (/ body-diameter 2) body-length))
+
+  ;; Top thread (M4 external)
+  (:on-face :direction :+z :extreme :max
+    (:add (clad.features:make-external-thread :m4 :length thread-length)))
+
+  ;; Bottom thread (M4 external)
+  (:on-face :direction :-z :extreme :min
+    (:add (clad.core:translate
+            (clad.features:make-external-thread :m4 :length thread-length)
+            0 0 (- thread-length)))))
+
+;; Create and export
+(defparameter *standoff* (threaded-standoff))
+(clad:view *standoff* :name "standoff")
+```
+
+**Example - Part with Threaded Holes:**
+
+```lisp
+(clad.dsl:defpart mounting-plate-threaded
+    ((width 100)
+     (height 80)
+     (thickness 10)
+     (hole-spacing 70))
+  "Mounting plate with M6 threaded holes"
+
+  ;; Base plate
+  (:body (clad.core:make-box width height thickness))
+
+  ;; Drill and tap M6 holes in corners
+  (:on-face :direction :+z :extreme :max
+    (:grid-pattern :count-x 2 :count-y 2
+                   :spacing-x hole-spacing
+                   :spacing-y (- height 20)
+      (:cut (clad.core:translate
+              (clad.features:make-internal-thread :m6 :depth thickness)
+              0 0 0)))))
+```
+
+**Custom Thread Standards:**
+
+Define custom thread specifications:
+
+```lisp
+(clad.features:define-thread-spec :m12x1.5 12.0 1.5 :standard "ISO Metric Fine")
+(defparameter *custom-thread*
+  (clad.features:make-external-thread :m12x1.5 :length 40))
+```
+
+**Thread Operations:**
+
+Add threads to existing geometry:
+
+```lisp
+;; Add external thread to existing cylinder
+(defparameter *cylinder* (clad.core:make-cylinder 3 20))
+(defparameter *threaded-rod*
+  (clad.features:add-external-thread *cylinder* :m6))
+
+;; Cut internal thread into part
+(defparameter *block* (clad.core:make-box 30 30 15))
+(defparameter *threaded-block*
+  (clad.features:cut-internal-thread *block* :m6 15 15 0))
+```
+
+**Common Thread Standards:**
+
+| Designation | Major Dia (mm) | Pitch (mm) | Standard |
+|-------------|----------------|------------|----------|
+| M3 | 3.0 | 0.5 | ISO Metric |
+| M6 | 6.0 | 1.0 | ISO Metric |
+| M8 | 8.0 | 1.25 | ISO Metric |
+| M10 | 10.0 | 1.5 | ISO Metric |
+| M8x1.0 | 8.0 | 1.0 | ISO Metric Fine |
+| M10x1.25 | 10.0 | 1.25 | ISO Metric Fine |
+| 1/4-20 | 6.35 | 1.27 | UNC |
+
+**Engineering Notes:**
+
+1. **Cosmetic vs. Detailed**: Current implementation uses cosmetic representation (simplified geometry). Suitable for assemblies where exact thread form isn't critical.
+
+2. **Tap Drill Sizing**: Use `tap-drill-size` function to determine correct drill diameter for tapped holes.
+
+3. **Thread Engagement**: For blind holes, make depth at least 1.5× the major diameter for full strength.
+
+4. **Clearance Holes**: For bolts passing through, use major diameter + 0.5mm clearance (e.g., 6.5mm for M6).
+
+**Assembly Integration:**
+
+```lisp
+;; Bolt and nut assembly
+(clad.assembly.dsl:defassembly bolted-joint ()
+  "Simple bolted connection"
+
+  (:component :plate1 (mounting-plate-threaded)
+              :fixed t
+              :metadata '(:material "Aluminum"))
+
+  (:component :bolt (clad.features:make-external-thread :m6 :length 40)
+              :quantity 4
+              :metadata '(:part-number "M6-40" :material "Steel"))
+
+  (:mate :concentric
+         :plate1 :hole-1
+         :bolt :axis))
+```
+
 ---
 
 ## Best Practices
@@ -1451,6 +2342,7 @@ See the `examples/` directory for comprehensive tutorials:
 - `04-advanced-features.lisp` - Loft, sweep, pipe
 - `05-assemblies.lisp` - Building assemblies
 - `06-advanced-selectors.lisp` - Selector techniques
+- `06-advanced-selectors-showcase.lisp` - Boolean combinators, position selectors, face-plane operations
 - `06-sketches.lisp` - 2D parametric sketching
 
 Load any example:
