@@ -176,6 +176,35 @@ Each example file is self-contained and will run demonstrations automatically wh
 (demonstrate-advanced-selectors)  ; Interactive demo
 ```
 
+### 07-threads.lisp - Thread Modeling Tutorial
+**What you'll learn:**
+- Thread database overview (119 specifications)
+- ISO Metric threads (coarse and fine pitch)
+- UNC and UNF imperial threads
+- External threads (bolts, studs)
+- Internal threads (threaded holes)
+- Thread DSL integration in defpart
+- Left-handed and lead-in/lead-out threads
+- Thread utilities (tap drill, minor diameter)
+- Low-level thread API
+
+**Examples:**
+1. Simple threaded shaft with M6 thread
+2. Block with M8 threaded hole
+3. Parametric hex bolt
+4. Parametric hex nut
+5. Left-handed thread
+6. Thread with smooth engagement (lead-in/out)
+7. Dual-threaded shaft (M8 and M10)
+8. UNC thread (1/4-20)
+9. UNF thread (1/4-28)
+
+**Run:**
+```lisp
+(load "examples/07-threads.lisp")
+(view-thread-examples)  ; View all in browser
+```
+
 ## Common Patterns
 
 ### Defining a Parametric Part
@@ -331,21 +360,31 @@ After working through these examples:
 Beyond these examples, CLAD includes powerful production-ready features:
 
 ### Thread Modeling
-Create standard threaded features for mechanical assemblies:
+Create production-ready threaded features with accurate ISO 68-1 geometry:
+
 ```lisp
-;; External threads (bolts, studs)
-(clad.features:make-external-thread :m6 :length 30)
+;; Using DSL integration (recommended)
+(defpart threaded-shaft ()
+  (cylinder :radius 3.0 :height 50.0)
+  (thread :m6 :length 30.0 :type :external :position '(0 0 10.0)))
 
-;; Internal threads (threaded holes)
-(clad.features:make-internal-thread :m8 :depth 25)
+;; Low-level API for advanced control
+(clad.features.helical-sweep:make-external-thread :m8 30.0)
+(clad.features.helical-sweep:make-internal-thread :m6 20.0)
 
-;; Calculate tap drill size
-(clad.features:tap-drill-size :m6)  ; => 5.0 mm
+;; Thread utilities
+(clad.features:tap-drill-size :m6)            ; => 5.0 mm
+(clad.features:thread-designation-string :m8) ; => "M8.0 x 1.25"
+(clad.features:list-threads-by-standard "UNC") ; => All UNC threads
 ```
 
-**Available standards**: ISO Metric (M3, M6, M8, M10), ISO Metric Fine (M8x1.0, M10x1.25), Unified (1/4-20)
+**Comprehensive thread database (119 specifications):**
+- ISO Metric Coarse: M1.6 to M64 (30 sizes)
+- ISO Metric Fine: M3×0.35 to M30×2.0 (17 sizes)
+- UNC: #0-80 to 2-4.5 (26 sizes)
+- UNF: #0-80 to 1-1/2-12 (23 sizes)
 
-See **USER_GUIDE.md** Section "Thread Modeling" for comprehensive documentation.
+**See also:** `07-threads.lisp` for complete tutorial
 
 ### Tolerancing & GD&T
 Full geometric dimensioning and tolerancing per ASME Y14.5:

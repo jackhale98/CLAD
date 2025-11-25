@@ -277,37 +277,61 @@ Work directly on faces with automatic centering:
 
 ## Thread Modeling
 
-Create standard threaded features for mechanical assemblies:
+Create production-ready threaded features with accurate ISO 68-1 geometry:
 
 ```lisp
-;; External threads (bolts, studs)
+;; External threads using DSL (Phase 4 - full 3D geometry)
 (clad.dsl:defpart hex-bolt
     ((thread-spec :m8)
-     (thread-length 30)
-     (head-diameter 13))
-  "M8 hex bolt"
-  (:body (clad.core:make-cylinder (/ head-diameter 2) 5))  ; Head
+     (shaft-length 50)
+     (thread-length 30))
+  "M8 hex bolt with full thread geometry"
+  (:body (clad.core:make-cylinder 6.5 5))  ; Hex head
   (:on-face :direction :-z :extreme :min
-    (:add (clad.features:make-external-thread thread-spec :length thread-length))))
+    (:add (clad.core:make-cylinder 4.0 shaft-length)))
+  ;; Add thread using DSL integration
+  (thread thread-spec :length thread-length :type :external
+          :position '(0 0 25)))  ; Thread at end of shaft
 
 ;; Internal threads (threaded holes)
-(clad.dsl:defpart mounting-plate-threaded
-    ((hole-spacing 70))
-  "Mounting plate with M6 threaded holes"
-  (:body (clad.core:make-box 100 100 10))
+(clad.dsl:defpart threaded-block ()
+  "Block with M6 threaded hole"
+  (:body (clad.core:make-box 30 30 20))
   (:on-face :direction :+z :extreme :max
-    (:circular-pattern :count 4 :radius (/ hole-spacing 2)
-      (:cut (clad.features:make-internal-thread :m6 :depth 15)))))
+    (hole :radius 2.5 :height 20 :position '(15 15 0))
+    (thread :m6 :length 15 :type :internal :position '(15 15 2.5))))
 
-;; Calculate tap drill size
-(clad.features:tap-drill-size :m6)  ; => 5.0 mm
-(clad.features:thread-minor-diameter :m8)  ; => 6.647 mm
+;; Thread utilities
+(clad.features:tap-drill-size :m6)           ; => 5.0 mm
+(clad.features:thread-minor-diameter :m8)    ; => 6.647 mm
+(clad.features:thread-designation-string :m8) ; => "M8.0 x 1.25"
+
+;; List threads by standard
+(clad.features:list-threads-by-standard "UNC")  ; => All UNC threads
+(clad.features:print-thread-database "ISO Metric")  ; => Formatted table
 ```
 
-**Available Thread Standards:**
-- **ISO Metric**: M3, M6, M8, M10
-- **ISO Metric Fine**: M8x1.0, M10x1.25
-- **Unified**: 1/4-20 (UNC)
+**Comprehensive Thread Database (119 Specifications):**
+
+- **ISO Metric Coarse (30 threads):** M1.6 to M64
+- **ISO Metric Fine (17 threads):** M3×0.35 to M30×2.0
+- **UNC - Unified National Coarse (26 threads):** #0-80 to 2-4.5
+- **UNF - Unified National Fine (23 threads):** #0-80 to 1-1/2-12
+
+Common sizes include:
+```lisp
+;; Metric: :m3 :m4 :m5 :m6 :m8 :m10 :m12 :m16 :m20 :m24 :m30
+;; Metric Fine: :m8x1.0 :m10x1.25 :m12x1.5 :m16x1.5 :m20x2.0
+;; UNC: :|#6-32| :|#8-32| :|#10-24| :|1/4-20| :|3/8-16| :|1/2-13|
+;; UNF: :|#8-36| :|#10-32| :|1/4-28| :|3/8-24| :|1/2-20|
+```
+
+**Thread Features:**
+- Full 3D helical geometry (not cosmetic)
+- ISO 68-1 profile with proper truncations
+- Left-handed thread support
+- Lead-in/lead-out for smooth engagement
+- Thread fit checking for bolt/nut compatibility
 
 ## Tolerancing & GD&T
 
@@ -458,6 +482,8 @@ The `examples/` directory contains comprehensive tutorials:
 - **06-advanced-selectors.lisp** - Advanced face and edge selection
 - **06-advanced-selectors-showcase.lisp** - Boolean combinators, position selectors, and face-plane operations
 - **06-sketches.lisp** - 2D parametric sketching
+- **07-threads.lisp** - Thread modeling with ISO/UNC/UNF standards
+- **thread-modeling-examples.lisp** - Advanced thread examples with DSL integration
 
 Run any example:
 ```lisp
