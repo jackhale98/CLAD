@@ -115,7 +115,11 @@
                  (:module "features"
                   :serial t
                   :components
-                  ((:file "threads")))  ; Option 1: Thread modeling
+                  ((:file "threads")           ; Thread modeling (simplified)
+                   (:file "thread-profile")    ; Phase 1: Thread profile geometry
+                   (:file "helical-path")      ; Phase 2: Helical path generation
+                   (:file "helical-sweep")     ; Phase 3: Helical sweep operation
+                   (:file "thread-boolean")))  ; Phase 4: Thread boolean operations & DSL
 
                  ;; Layer 6: Export functionality
                  (:module "export"
@@ -182,6 +186,11 @@
                  (:file "stl-export-tests")           ; Option 1: STL export tests (TDD)
                  (:file "mass-properties-tests")      ; Option 1: Mass properties tests (TDD)
                  (:file "thread-tests")               ; Option 1: Thread modeling tests (TDD)
+                 (:file "thread-profile-tests")       ; Phase 1: Thread profile geometry tests (TDD)
+                 (:file "helical-path-tests")         ; Phase 2: Helical path generation tests (TDD)
+                 (:file "helical-sweep-tests")        ; Phase 3: Helical sweep operation tests (TDD)
+                 (:file "thread-boolean-tests")       ; Phase 4: Thread boolean operations tests (TDD)
+                 (:file "thread-dsl-tests")           ; Phase 4: Thread DSL integration tests (TDD)
                  (:file "shapes-tests")
                  (:file "selector-tests")
                  (:file "selector-combinator-tests")  ; Phase 1 TDD - AND/OR/NOT combinators

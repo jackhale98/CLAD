@@ -7,14 +7,124 @@
 ;;; ============================================================================
 
 (defparameter *thread-database*
-  '((:m3 . (:major-diameter 3.0 :pitch 0.5 :standard "ISO Metric"))
+  '(;; ========================================================================
+    ;; ISO Metric Coarse Threads (ISO 68-1)
+    ;; ========================================================================
+    (:m1.6 . (:major-diameter 1.6 :pitch 0.35 :standard "ISO Metric"))
+    (:m2 . (:major-diameter 2.0 :pitch 0.4 :standard "ISO Metric"))
+    (:m2.5 . (:major-diameter 2.5 :pitch 0.45 :standard "ISO Metric"))
+    (:m3 . (:major-diameter 3.0 :pitch 0.5 :standard "ISO Metric"))
+    (:m3.5 . (:major-diameter 3.5 :pitch 0.6 :standard "ISO Metric"))
+    (:m4 . (:major-diameter 4.0 :pitch 0.7 :standard "ISO Metric"))
+    (:m5 . (:major-diameter 5.0 :pitch 0.8 :standard "ISO Metric"))
     (:m6 . (:major-diameter 6.0 :pitch 1.0 :standard "ISO Metric"))
+    (:m7 . (:major-diameter 7.0 :pitch 1.0 :standard "ISO Metric"))
     (:m8 . (:major-diameter 8.0 :pitch 1.25 :standard "ISO Metric"))
     (:m10 . (:major-diameter 10.0 :pitch 1.5 :standard "ISO Metric"))
+    (:m12 . (:major-diameter 12.0 :pitch 1.75 :standard "ISO Metric"))
+    (:m14 . (:major-diameter 14.0 :pitch 2.0 :standard "ISO Metric"))
+    (:m16 . (:major-diameter 16.0 :pitch 2.0 :standard "ISO Metric"))
+    (:m18 . (:major-diameter 18.0 :pitch 2.5 :standard "ISO Metric"))
+    (:m20 . (:major-diameter 20.0 :pitch 2.5 :standard "ISO Metric"))
+    (:m22 . (:major-diameter 22.0 :pitch 2.5 :standard "ISO Metric"))
+    (:m24 . (:major-diameter 24.0 :pitch 3.0 :standard "ISO Metric"))
+    (:m27 . (:major-diameter 27.0 :pitch 3.0 :standard "ISO Metric"))
+    (:m30 . (:major-diameter 30.0 :pitch 3.5 :standard "ISO Metric"))
+    (:m33 . (:major-diameter 33.0 :pitch 3.5 :standard "ISO Metric"))
+    (:m36 . (:major-diameter 36.0 :pitch 4.0 :standard "ISO Metric"))
+    (:m39 . (:major-diameter 39.0 :pitch 4.0 :standard "ISO Metric"))
+    (:m42 . (:major-diameter 42.0 :pitch 4.5 :standard "ISO Metric"))
+    (:m45 . (:major-diameter 45.0 :pitch 4.5 :standard "ISO Metric"))
+    (:m48 . (:major-diameter 48.0 :pitch 5.0 :standard "ISO Metric"))
+    (:m52 . (:major-diameter 52.0 :pitch 5.0 :standard "ISO Metric"))
+    (:m56 . (:major-diameter 56.0 :pitch 5.5 :standard "ISO Metric"))
+    (:m60 . (:major-diameter 60.0 :pitch 5.5 :standard "ISO Metric"))
+    (:m64 . (:major-diameter 64.0 :pitch 6.0 :standard "ISO Metric"))
+
+    ;; ========================================================================
+    ;; ISO Metric Fine Pitch Threads (ISO 68-1)
+    ;; ========================================================================
+    (:m3x0.35 . (:major-diameter 3.0 :pitch 0.35 :standard "ISO Metric Fine"))
+    (:m4x0.5 . (:major-diameter 4.0 :pitch 0.5 :standard "ISO Metric Fine"))
+    (:m5x0.5 . (:major-diameter 5.0 :pitch 0.5 :standard "ISO Metric Fine"))
+    (:m6x0.75 . (:major-diameter 6.0 :pitch 0.75 :standard "ISO Metric Fine"))
     (:m8x1.0 . (:major-diameter 8.0 :pitch 1.0 :standard "ISO Metric Fine"))
     (:m10x1.25 . (:major-diameter 10.0 :pitch 1.25 :standard "ISO Metric Fine"))
-    (:1/4-20 . (:major-diameter 6.35 :pitch 1.27 :tpi 20 :standard "UNC")))
-  "Thread specification database")
+    (:m10x1.0 . (:major-diameter 10.0 :pitch 1.0 :standard "ISO Metric Fine"))
+    (:m12x1.5 . (:major-diameter 12.0 :pitch 1.5 :standard "ISO Metric Fine"))
+    (:m12x1.25 . (:major-diameter 12.0 :pitch 1.25 :standard "ISO Metric Fine"))
+    (:m14x1.5 . (:major-diameter 14.0 :pitch 1.5 :standard "ISO Metric Fine"))
+    (:m16x1.5 . (:major-diameter 16.0 :pitch 1.5 :standard "ISO Metric Fine"))
+    (:m18x2.0 . (:major-diameter 18.0 :pitch 2.0 :standard "ISO Metric Fine"))
+    (:m18x1.5 . (:major-diameter 18.0 :pitch 1.5 :standard "ISO Metric Fine"))
+    (:m20x2.0 . (:major-diameter 20.0 :pitch 2.0 :standard "ISO Metric Fine"))
+    (:m20x1.5 . (:major-diameter 20.0 :pitch 1.5 :standard "ISO Metric Fine"))
+    (:m22x2.0 . (:major-diameter 22.0 :pitch 2.0 :standard "ISO Metric Fine"))
+    (:m22x1.5 . (:major-diameter 22.0 :pitch 1.5 :standard "ISO Metric Fine"))
+    (:m24x2.0 . (:major-diameter 24.0 :pitch 2.0 :standard "ISO Metric Fine"))
+    (:m27x2.0 . (:major-diameter 27.0 :pitch 2.0 :standard "ISO Metric Fine"))
+    (:m30x2.0 . (:major-diameter 30.0 :pitch 2.0 :standard "ISO Metric Fine"))
+
+    ;; ========================================================================
+    ;; UNC - Unified National Coarse (ANSI/ASME B1.1)
+    ;; ========================================================================
+    ;; Format: major diameter in inches, TPI (threads per inch)
+    ;; Pitch (mm) = 25.4 / TPI
+    (:|#0-80| . (:major-diameter 1.524 :pitch 0.3175 :tpi 80 :standard "UNC"))
+    (:|#1-64| . (:major-diameter 1.854 :pitch 0.3969 :tpi 64 :standard "UNC"))
+    (:|#2-56| . (:major-diameter 2.184 :pitch 0.4536 :tpi 56 :standard "UNC"))
+    (:|#3-48| . (:major-diameter 2.515 :pitch 0.5292 :tpi 48 :standard "UNC"))
+    (:|#4-40| . (:major-diameter 2.845 :pitch 0.635 :tpi 40 :standard "UNC"))
+    (:|#5-40| . (:major-diameter 3.175 :pitch 0.635 :tpi 40 :standard "UNC"))
+    (:|#6-32| . (:major-diameter 3.505 :pitch 0.7938 :tpi 32 :standard "UNC"))
+    (:|#8-32| . (:major-diameter 4.166 :pitch 0.7938 :tpi 32 :standard "UNC"))
+    (:|#10-24| . (:major-diameter 4.826 :pitch 1.0583 :tpi 24 :standard "UNC"))
+    (:|#12-24| . (:major-diameter 5.486 :pitch 1.0583 :tpi 24 :standard "UNC"))
+    (:|1/4-20| . (:major-diameter 6.35 :pitch 1.27 :tpi 20 :standard "UNC"))
+    (:|5/16-18| . (:major-diameter 7.9375 :pitch 1.4111 :tpi 18 :standard "UNC"))
+    (:|3/8-16| . (:major-diameter 9.525 :pitch 1.5875 :tpi 16 :standard "UNC"))
+    (:|7/16-14| . (:major-diameter 11.1125 :pitch 1.8143 :tpi 14 :standard "UNC"))
+    (:|1/2-13| . (:major-diameter 12.7 :pitch 1.9538 :tpi 13 :standard "UNC"))
+    (:|9/16-12| . (:major-diameter 14.2875 :pitch 2.1167 :tpi 12 :standard "UNC"))
+    (:|5/8-11| . (:major-diameter 15.875 :pitch 2.3091 :tpi 11 :standard "UNC"))
+    (:|3/4-10| . (:major-diameter 19.05 :pitch 2.54 :tpi 10 :standard "UNC"))
+    (:|7/8-9| . (:major-diameter 22.225 :pitch 2.8222 :tpi 9 :standard "UNC"))
+    (:|1-8| . (:major-diameter 25.4 :pitch 3.175 :tpi 8 :standard "UNC"))
+    (:|1-1/8-7| . (:major-diameter 28.575 :pitch 3.6286 :tpi 7 :standard "UNC"))
+    (:|1-1/4-7| . (:major-diameter 31.75 :pitch 3.6286 :tpi 7 :standard "UNC"))
+    (:|1-3/8-6| . (:major-diameter 34.925 :pitch 4.2333 :tpi 6 :standard "UNC"))
+    (:|1-1/2-6| . (:major-diameter 38.1 :pitch 4.2333 :tpi 6 :standard "UNC"))
+    (:|1-3/4-5| . (:major-diameter 44.45 :pitch 5.08 :tpi 5 :standard "UNC"))
+    (:|2-4.5| . (:major-diameter 50.8 :pitch 5.6444 :tpi 4.5 :standard "UNC"))
+
+    ;; ========================================================================
+    ;; UNF - Unified National Fine (ANSI/ASME B1.1)
+    ;; ========================================================================
+    (:|#0-80| . (:major-diameter 1.524 :pitch 0.3175 :tpi 80 :standard "UNF"))
+    (:|#1-72| . (:major-diameter 1.854 :pitch 0.3528 :tpi 72 :standard "UNF"))
+    (:|#2-64| . (:major-diameter 2.184 :pitch 0.3969 :tpi 64 :standard "UNF"))
+    (:|#3-56| . (:major-diameter 2.515 :pitch 0.4536 :tpi 56 :standard "UNF"))
+    (:|#4-48| . (:major-diameter 2.845 :pitch 0.5292 :tpi 48 :standard "UNF"))
+    (:|#5-44| . (:major-diameter 3.175 :pitch 0.5773 :tpi 44 :standard "UNF"))
+    (:|#6-40| . (:major-diameter 3.505 :pitch 0.635 :tpi 40 :standard "UNF"))
+    (:|#8-36| . (:major-diameter 4.166 :pitch 0.7056 :tpi 36 :standard "UNF"))
+    (:|#10-32| . (:major-diameter 4.826 :pitch 0.7938 :tpi 32 :standard "UNF"))
+    (:|#12-28| . (:major-diameter 5.486 :pitch 0.9071 :tpi 28 :standard "UNF"))
+    (:|1/4-28| . (:major-diameter 6.35 :pitch 0.9071 :tpi 28 :standard "UNF"))
+    (:|5/16-24| . (:major-diameter 7.9375 :pitch 1.0583 :tpi 24 :standard "UNF"))
+    (:|3/8-24| . (:major-diameter 9.525 :pitch 1.0583 :tpi 24 :standard "UNF"))
+    (:|7/16-20| . (:major-diameter 11.1125 :pitch 1.27 :tpi 20 :standard "UNF"))
+    (:|1/2-20| . (:major-diameter 12.7 :pitch 1.27 :tpi 20 :standard "UNF"))
+    (:|9/16-18| . (:major-diameter 14.2875 :pitch 1.4111 :tpi 18 :standard "UNF"))
+    (:|5/8-18| . (:major-diameter 15.875 :pitch 1.4111 :tpi 18 :standard "UNF"))
+    (:|3/4-16| . (:major-diameter 19.05 :pitch 1.5875 :tpi 16 :standard "UNF"))
+    (:|7/8-14| . (:major-diameter 22.225 :pitch 1.8143 :tpi 14 :standard "UNF"))
+    (:|1-12| . (:major-diameter 25.4 :pitch 2.1167 :tpi 12 :standard "UNF"))
+    (:|1-1/8-12| . (:major-diameter 28.575 :pitch 2.1167 :tpi 12 :standard "UNF"))
+    (:|1-1/4-12| . (:major-diameter 31.75 :pitch 2.1167 :tpi 12 :standard "UNF"))
+    (:|1-3/8-12| . (:major-diameter 34.925 :pitch 2.1167 :tpi 12 :standard "UNF"))
+    (:|1-1/2-12| . (:major-diameter 38.1 :pitch 2.1167 :tpi 12 :standard "UNF")))
+  "Comprehensive thread specification database with ISO Metric, UNC, and UNF standards")
 
 (defun get-thread-spec (designation)
   "Get thread specification from database"
@@ -26,6 +136,67 @@
 (defun list-thread-specs ()
   "List all available thread specifications"
   (mapcar #'car *thread-database*))
+
+(defun list-threads-by-standard (standard)
+  "List all threads of a specific standard.
+
+  STANDARD: String to match (e.g., \"ISO Metric\", \"UNC\", \"UNF\")
+
+  Returns: List of thread designation keywords"
+  (loop for (designation . spec) in *thread-database*
+        when (search standard (getf spec :standard))
+        collect designation))
+
+(defun thread-designation-string (designation)
+  "Get human-readable thread designation string.
+
+  Args:
+    designation - Thread designation keyword
+
+  Returns: String like 'M6 x 1.0' or '1/4-20 UNC'"
+  (let ((spec (get-thread-spec designation)))
+    (cond
+      ;; ISO Metric threads
+      ((search "ISO" (getf spec :standard))
+       (format nil "M~,1F x ~,2F"
+               (getf spec :major-diameter)
+               (getf spec :pitch)))
+
+      ;; UNC/UNF threads
+      ((or (search "UNC" (getf spec :standard))
+           (search "UNF" (getf spec :standard)))
+       (format nil "~A (~A TPI)"
+               (string-downcase (symbol-name designation))
+               (getf spec :tpi)))
+
+      ;; Default
+      (t (format nil "~A" designation)))))
+
+(defun print-thread-database (&optional (standard nil))
+  "Print thread database in a formatted table.
+
+  STANDARD: Optional standard filter (\"ISO Metric\", \"UNC\", \"UNF\")"
+  (let ((threads (if standard
+                     (list-threads-by-standard standard)
+                     (list-thread-specs))))
+
+    (format t "~%Thread Specifications~A:~%"
+            (if standard (format nil " (~A)" standard) ""))
+    (format t "~A~%" (make-string 80 :initial-element #\=))
+    (format t "~25A ~12A ~12A ~20A~%"
+            "Designation" "Major Ø" "Pitch" "Standard")
+    (format t "~A~%" (make-string 80 :initial-element #\-))
+
+    (dolist (designation threads)
+      (let ((spec (get-thread-spec designation)))
+        (format t "~25A ~12,3F ~12,4F ~20A~%"
+                (thread-designation-string designation)
+                (getf spec :major-diameter)
+                (getf spec :pitch)
+                (getf spec :standard))))
+
+    (format t "~A~%" (make-string 80 :initial-element #\=))
+    (format t "Total: ~A thread specifications~%~%" (length threads))))
 
 (defun define-thread-spec (designation major-diameter pitch &key (standard "Custom"))
   "Define a custom thread specification"

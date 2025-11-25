@@ -201,6 +201,10 @@
     (:total-runout
      (expand-gdt-form-at-compile-time :total-runout (rest form)))
 
+    ;; Phase 4: Thread operations
+    (:thread
+     (expand-thread-form-at-compile-time (rest form)))
+
     (t
      (error "Unknown part form: ~S" form))))
 
@@ -1439,4 +1443,91 @@
 
     (t
      (error "Unknown face-plane pattern operation: ~S" (first operation-form)))))
+
+;;; ============================================================================
+;;; Phase 4: Thread Operations
+;;; ============================================================================
+
+(defun expand-thread-form-at-compile-time (args)
+  "Expand a :thread form at compile time (Phase 4).
+
+  Syntax:
+    (:thread thread-spec
+      :length length
+      :type :external|:internal
+      [:position (x y z)]
+      [:handedness :right|:left]
+      [:lead-in turns]
+      [:lead-out turns])
+
+  Examples:
+    (:thread :m6 :length 30.0 :type :external)
+    (:thread :m8 :length 25.0 :type :internal :position (10 10 5))
+    (:thread :m6 :length 30.0 :type :external :handedness :left)
+    (:thread :m10 :length 40.0 :type :external :lead-in 0.5 :lead-out 0.5)
+
+  This creates a thread and applies it to the current shape using
+  boolean operations."
+
+  (let ((thread-spec (first args))
+        (length nil)
+        (thread-type :external)
+        (position '(0 0 0))
+        (handedness :right)
+        (lead-in nil)
+        (lead-out nil))
+
+    ;; Parse keyword arguments
+    (loop for (key value) on (rest args) by #'cddr
+          do (case key
+               (:length (setf length value))
+               (:type (setf thread-type value))
+               (:position (setf position value))
+               (:handedness (setf handedness value))
+               (:lead-in (setf lead-in value))
+               (:lead-out (setf lead-out value))
+               (t (error "Unknown :thread parameter: ~S" key))))
+
+    (unless length
+      (error ":thread requires :length parameter"))
+
+    (unless (member thread-type '(:external :internal))
+      (error ":thread :type must be :external or :internal, got ~S" thread-type))
+
+    (unless (member handedness '(:right :left))
+      (error ":thread :handedness must be :right or :left, got ~S" handedness))
+
+    ;; Generate code to create and apply thread
+    (if (and lead-in lead-out)
+        ;; Thread with lead-in/lead-out
+        `(let ((thread-geom (clad.features.helical-sweep:make-thread-with-lead
+                             :thread-spec ,thread-spec
+                             :length ,length
+                             :profile-type ,thread-type
+                             :right-handed ,(eq handedness :right)
+                             :lead-in-turns ,lead-in
+                             :lead-out-turns ,lead-out)))
+           ;; Apply thread to current shape
+           ,(if (eq thread-type :external)
+                `(let ((current-shape (get-result)))
+                   (add (clad.features.thread-boolean:apply-external-thread
+                         current-shape thread-geom :position ',position)))
+                `(let ((current-shape (get-result)))
+                   (add (clad.features.thread-boolean:apply-internal-thread
+                         current-shape thread-geom :position ',position)))))
+
+        ;; Standard thread (no lead)
+        `(let ((thread-geom (clad.features.helical-sweep:make-thread-geometry
+                             :thread-spec ,thread-spec
+                             :length ,length
+                             :profile-type ,thread-type
+                             :right-handed ,(eq handedness :right))))
+           ;; Apply thread to current shape
+           ,(if (eq thread-type :external)
+                `(let ((current-shape (get-result)))
+                   (add (clad.features.thread-boolean:apply-external-thread
+                         current-shape thread-geom :position ',position)))
+                `(let ((current-shape (get-result)))
+                   (add (clad.features.thread-boolean:apply-internal-thread
+                         current-shape thread-geom :position ',position)))))))
 

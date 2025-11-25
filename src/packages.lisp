@@ -626,6 +626,162 @@
 ;;; Layer 5.96: Features (Threads, Fasteners, etc.)
 ;;; ============================================================================
 
+(defpackage #:clad.features.thread-profile
+  (:use #:cl)
+  (:import-from #:clad.features
+                #:get-thread-spec)
+  (:import-from #:clad.ffi
+                #:make-gp-pnt
+                #:make-edge-from-points
+                #:make-wire-from-edges
+                #:is-valid-shape
+                #:is-closed-wire
+                #:count-edges)
+  (:documentation "Thread profile geometry generation for helical sweeping")
+  (:export
+   ;; Thread profile class
+   #:thread-profile
+   #:profile-spec
+   #:profile-type
+   #:profile-vertices
+   #:profile-parameters
+
+   ;; Profile generation
+   #:make-iso-metric-profile
+
+   ;; Wire conversion
+   #:profile-to-wire
+
+   ;; Utility functions
+   #:get-profile-info
+   #:validate-profile
+   #:profile-summary))
+
+(defpackage #:clad.features.helical-path
+  (:use #:cl)
+  (:import-from #:clad.features
+                #:get-thread-spec)
+  (:import-from #:clad.ffi
+                #:make-gp-pnt
+                #:make-bspline-curve-through-points
+                #:make-edge-from-curve
+                #:get-curve-start-point
+                #:get-curve-end-point
+                #:point-x
+                #:point-y
+                #:point-z
+                #:evaluate-curve-at
+                #:is-valid-shape
+                #:get-curve-properties)
+  (:documentation "Helical path generation for thread sweeping")
+  (:export
+   ;; Helix class
+   #:helix-curve
+   #:helix-edge
+   #:helix-parameters
+
+   ;; Helix generation
+   #:make-helix
+   #:make-helix-for-thread
+   #:make-helix-with-lead
+
+   ;; Helix utilities
+   #:get-helix-info
+   #:get-helix-edge
+   #:helix-length
+   #:sample-helix-point
+   #:validate-helix-parameters
+   #:helix-summary))
+
+(defpackage #:clad.features.helical-sweep
+  (:use #:cl)
+  (:import-from #:clad.features
+                #:get-thread-spec)
+  (:import-from #:clad.features.thread-profile
+                #:thread-profile
+                #:profile-to-wire)
+  (:import-from #:clad.features.helical-path
+                #:helix-curve
+                #:get-helix-edge)
+  (:import-from #:clad.ffi
+                #:make-pipe
+                #:is-valid-shape
+                #:get-bounding-box
+                #:get-volume
+                #:get-surface-area
+                #:is-closed-solid
+                #:get-shape-type
+                #:has-self-intersections
+                #:ffi-intersect
+                #:ffi-cut)
+  (:documentation "Helical sweep operations for creating 3D thread geometry")
+  (:export
+   ;; Main sweep operation
+   #:sweep-profile-along-helix
+
+   ;; High-level thread creation
+   #:make-thread-geometry
+   #:make-external-thread
+   #:make-internal-thread
+   #:make-thread-with-lead
+
+   ;; Thread analysis
+   #:get-thread-info
+   #:validate-thread-geometry
+   #:thread-summary
+
+   ;; Boolean operations
+   #:apply-external-thread-to-cylinder
+   #:apply-internal-thread-to-hole))
+
+(defpackage #:clad.features.thread-boolean
+  (:use #:cl)
+  (:import-from #:clad.features
+                #:get-thread-spec)
+  (:import-from #:clad.features.thread-profile
+                #:make-iso-metric-profile)
+  (:import-from #:clad.features.helical-path
+                #:make-helix-for-thread
+                #:make-helix-with-lead)
+  (:import-from #:clad.features.helical-sweep
+                #:make-external-thread
+                #:make-internal-thread
+                #:make-thread-with-lead
+                #:get-thread-info)
+  (:import-from #:clad.core
+                #:translate
+                #:union-shapes
+                #:cut-shapes
+                #:make-cylinder
+                #:make-box)
+  (:import-from #:clad.ffi
+                #:get-volume
+                #:is-valid-shape
+                #:get-bounding-box)
+  (:documentation "Thread boolean operations and application to parts")
+  (:export
+   ;; Thread application
+   #:apply-external-thread
+   #:apply-internal-thread
+
+   ;; Thread fit checking
+   #:check-thread-fit
+   #:calculate-engagement-length
+   #:analyze-thread-engagement
+
+   ;; Thread specification utilities
+   #:get-thread-spec-info
+   #:calculate-tap-drill-size
+   #:thread-designation
+
+   ;; Complete fastener creation
+   #:make-threaded-bolt
+   #:make-threaded-nut
+
+   ;; Thread analysis
+   #:thread-strength-estimate
+   #:thread-application-summary))
+
 (defpackage #:clad.features
   (:use #:cl)
   (:import-from #:clad.core
@@ -647,7 +803,10 @@
    ;; Thread database
    #:get-thread-spec
    #:list-thread-specs
+   #:list-threads-by-standard
    #:define-thread-spec
+   #:print-thread-database
+   #:thread-designation-string
    #:*thread-database*
 
    ;; Thread creation
