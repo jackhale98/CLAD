@@ -1462,6 +1462,211 @@ int occt_make_pipe_shell(occt_shape_t path, double radius,
     TRY_CATCH_END(out_error)
 }
 
+int occt_make_helical_sweep(const double* profile_points, int num_profile_points,
+                            occt_shape_t path,
+                            occt_shape_t* out_shape,
+                            char** out_error)
+{
+    if (!out_shape) return OCCT_ERROR_NULL_OBJECT;
+    if (!path) {
+        if (out_error) *out_error = strdup("Null path");
+        return OCCT_ERROR_NULL_OBJECT;
+    }
+    if (!profile_points || num_profile_points < 3) {
+        if (out_error) *out_error = strdup("Need at least 3 profile points");
+        return OCCT_ERROR_DOMAIN;
+    }
+    if (out_error) *out_error = nullptr;
+
+    TRY_CATCH_BEGIN
+        TopoDS_Shape* path_shape = static_cast<TopoDS_Shape*>(path);
+
+        // Convert path to wire
+        TopoDS_Wire path_wire;
+        if (path_shape->ShapeType() == TopAbs_WIRE) {
+            path_wire = TopoDS::Wire(*path_shape);
+        } else if (path_shape->ShapeType() == TopAbs_EDGE) {
+            BRepBuilderAPI_MakeWire wireMaker(TopoDS::Edge(*path_shape));
+            path_wire = wireMaker.Wire();
+        } else {
+            if (out_error) *out_error = strdup("Path must be a wire or edge");
+            return OCCT_ERROR_DOMAIN;
+        }
+
+        // Get the start point and tangent of the helix
+        TopExp_Explorer exp(path_wire, TopAbs_EDGE);
+        if (!exp.More()) {
+            if (out_error) *out_error = strdup("Path wire has no edges");
+            return OCCT_ERROR_DOMAIN;
+        }
+
+        TopoDS_Edge first_edge = TopoDS::Edge(exp.Current());
+        double first_param, last_param;
+        Handle(Geom_Curve) curve = BRep_Tool::Curve(first_edge, first_param, last_param);
+
+        gp_Pnt start_point;
+        gp_Vec tangent;
+        curve->D1(first_param, start_point, tangent);
+
+        // Normalize the tangent to get the path direction
+        if (tangent.Magnitude() < 1e-10) {
+            if (out_error) *out_error = strdup("Path tangent has zero magnitude at start");
+            return OCCT_ERROR_DOMAIN;
+        }
+        gp_Dir path_dir(tangent);
+
+        // Create a coordinate system at the helix start:
+        // For thread profiles, we need:
+        // - x_dir: radial direction (pointing outward from thread axis)
+        // - y_dir: direction perpendicular to both tangent and radial
+        //          (this is where the "z" coordinate of the profile will go)
+        //
+        // For a helix around Z axis, starting at (radius, 0, 0):
+        // - radial direction is (1, 0, 0)
+        // - tangent is roughly (dy/dt, -dx/dt, dz/dt) at the start, mainly +Z with spiral
+        // - profile plane should contain radial dir and be perpendicular to tangent
+
+        gp_Vec radial_vec(start_point.X(), start_point.Y(), 0.0);
+        double radial_len = radial_vec.Magnitude();
+
+        gp_Dir x_dir, y_dir;
+        if (radial_len > 1e-6) {
+            // Normal helix case: X points radially outward from thread axis
+            x_dir = gp_Dir(radial_vec);
+
+            // Y direction is perpendicular to both path tangent and radial direction
+            // For proper thread profile orientation, we want the profile's "z" axis
+            // (which maps to y_dir) to lie in the plane perpendicular to the path
+            gp_Vec y_vec = gp_Vec(path_dir).Crossed(gp_Vec(x_dir));
+            if (y_vec.Magnitude() < 1e-6) {
+                // Tangent and radial are parallel (shouldn't happen for helix)
+                y_dir = gp_Dir(0, 0, 1).Crossed(x_dir);
+            } else {
+                y_dir = gp_Dir(y_vec);
+            }
+        } else {
+            // Degenerate case: helix starts on Z axis
+            x_dir = gp_Dir(1, 0, 0);
+            y_dir = gp_Dir(0, 1, 0);
+        }
+
+        // Create the profile wire in the plane perpendicular to the path
+        // Profile points are (r, z) pairs where:
+        // - r is radial distance (in profile plane, this becomes distance along X)
+        // - z is axial distance (in profile plane, this becomes distance along Y)
+        // The profile plane has origin at start_point, X = radial, Y = tangent cross radial
+
+        BRepBuilderAPI_MakeWire profile_wire_maker;
+
+        // The profile vertices are (r, z) in cylindrical coordinates
+        // r = radial distance from axis (absolute position)
+        // z = axial offset (position along helix direction)
+        //
+        // We need to transform these to profile-local coordinates:
+        // - The profile center is at the helix start radius
+        // - r values are relative offsets from the helix start radius
+        // - z values become offsets along the profile plane normal (perpendicular to tangent)
+
+        // Get helix start radius
+        double helix_start_radius = radial_len;  // Distance from Z axis to start point
+
+        // Create edges connecting consecutive profile points
+        // Skip the last point if it's the same as the first (closed profile)
+        int effective_points = num_profile_points;
+        double r_first = profile_points[0];
+        double z_first = profile_points[1];
+        double r_last = profile_points[(num_profile_points - 1) * 2];
+        double z_last = profile_points[(num_profile_points - 1) * 2 + 1];
+        if (fabs(r_first - r_last) < 1e-6 && fabs(z_first - z_last) < 1e-6) {
+            effective_points--;  // Don't process duplicate closing point
+        }
+
+        for (int i = 0; i < effective_points; i++) {
+            int next = (i + 1) % effective_points;
+
+            double r1 = profile_points[i * 2];
+            double z1 = profile_points[i * 2 + 1];
+            double r2 = profile_points[next * 2];
+            double z2 = profile_points[next * 2 + 1];
+
+            // Convert (r, z) to profile-local offsets
+            // The profile plane has its origin at the helix start point
+            // X direction (x_dir) points radially outward
+            // Y direction (y_dir) is perpendicular to both path tangent and radial
+            //
+            // For thread profiles, r is the absolute radius from thread axis
+            // We want to position the profile so r=helix_start_radius maps to origin
+            // and z offsets go in the y_dir (normal to path in profile plane)
+            double offset_r1 = r1 - helix_start_radius;  // Relative radial offset
+            double offset_r2 = r2 - helix_start_radius;
+
+            // Transform to 3D coordinates in profile plane
+            gp_Pnt p1 = start_point.Translated(gp_Vec(x_dir) * offset_r1 + gp_Vec(y_dir) * z1);
+            gp_Pnt p2 = start_point.Translated(gp_Vec(x_dir) * offset_r2 + gp_Vec(y_dir) * z2);
+
+            // Skip degenerate edges
+            if (p1.Distance(p2) < 1e-6) continue;
+
+            TopoDS_Edge edge = BRepBuilderAPI_MakeEdge(p1, p2);
+            profile_wire_maker.Add(edge);
+        }
+
+        if (!profile_wire_maker.IsDone()) {
+            char msg[256];
+            snprintf(msg, sizeof(msg), "Failed to create profile wire: MakeWire status=%d, effective_points=%d, helix_radius=%f",
+                     (int)profile_wire_maker.Error(), effective_points, helix_start_radius);
+            if (out_error) *out_error = strdup(msg);
+            return OCCT_ERROR_CONSTRUCTION;
+        }
+
+        TopoDS_Wire profile_wire = profile_wire_maker.Wire();
+
+        // For thread geometry, we need to sweep with a fixed auxiliary spine
+        // direction (along Z axis) rather than pure Frenet frame, because
+        // Frenet frame would cause the profile to twist around the helix.
+        //
+        // Use BRepOffsetAPI_MakePipeShell with auxiliary spine to keep
+        // the profile oriented correctly (radial direction stays radial).
+
+        BRepOffsetAPI_MakePipeShell pipeMaker(path_wire);
+
+        // Set auxiliary spine mode with Z axis as the binormal direction
+        // This keeps the profile oriented so radial direction stays radial
+        // and axial direction stays along Z
+        gp_Dir aux_dir(0, 0, 1);  // Z axis (thread axis)
+        pipeMaker.SetMode(aux_dir);  // Use auxiliary direction as binormal
+
+        // Add the profile wire
+        pipeMaker.Add(profile_wire, Standard_False, Standard_False);  // No contact, no correction
+
+        // Build the pipe
+        pipeMaker.Build();
+
+        if (!pipeMaker.IsDone()) {
+            BRepBuilderAPI_PipeError err = pipeMaker.GetStatus();
+            char msg[256];
+            const char* errStr = "Unknown error";
+            switch(err) {
+                case BRepBuilderAPI_PipeDone: errStr = "PipeDone"; break;
+                case BRepBuilderAPI_PipeNotDone: errStr = "PipeNotDone"; break;
+                case BRepBuilderAPI_PlaneNotIntersectGuide: errStr = "PlaneNotIntersectGuide"; break;
+                case BRepBuilderAPI_ImpossibleContact: errStr = "ImpossibleContact"; break;
+            }
+            snprintf(msg, sizeof(msg), "Helical sweep failed: %s (code %d), helix_radius=%f, points=%d",
+                     errStr, (int)err, helix_start_radius, effective_points);
+            if (out_error) *out_error = strdup(msg);
+            return OCCT_ERROR_CONSTRUCTION;
+        }
+
+        // Try to make it solid (closes the ends)
+        pipeMaker.MakeSolid();
+
+        TopoDS_Shape* result = new TopoDS_Shape(pipeMaker.Shape());
+        *out_shape = result;
+        return OCCT_SUCCESS;
+    TRY_CATCH_END(out_error)
+}
+
 /*
  * Advanced Features - Lofts
  */

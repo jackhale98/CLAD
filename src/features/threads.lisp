@@ -127,11 +127,37 @@
   "Comprehensive thread specification database with ISO Metric, UNC, and UNF standards")
 
 (defun get-thread-spec (designation)
-  "Get thread specification from database"
-  (let ((spec (cdr (assoc designation *thread-database*))))
-    (unless spec
+  "Get thread specification from database.
+
+  Returns a plist with:
+    :major-diameter - Outer diameter (mm)
+    :pitch - Thread pitch (mm)
+    :pitch-diameter - Effective diameter at thread flanks (mm)
+    :minor-diameter - Inner diameter at thread root (mm)
+    :standard - Thread standard name
+    :tpi - Threads per inch (UNC/UNF only)
+
+  The pitch-diameter and minor-diameter are computed using ISO 68-1 formulas:
+    H = P × √3/2 (fundamental triangle height)
+    pitch-diameter = major-diameter - 0.6495 × P
+    minor-diameter = major-diameter - 1.0825 × P"
+  (let ((raw-spec (cdr (assoc designation *thread-database*))))
+    (unless raw-spec
       (error "Unknown thread specification: ~S" designation))
-    spec))
+    ;; Compute derived values using ISO 68-1 formulas
+    (let* ((major-d (getf raw-spec :major-diameter))
+           (pitch (getf raw-spec :pitch))
+           ;; ISO 68-1: pitch diameter = D - 0.6495P (where 0.6495 ≈ 3H/8, H = P×√3/2)
+           (pitch-d (- major-d (* 0.6495d0 pitch)))
+           ;; ISO 68-1: minor diameter = D - 1.0825P (where 1.0825 ≈ 5H/8, H = P×√3/2)
+           (minor-d (- major-d (* 1.0825d0 pitch))))
+      ;; Return complete spec with computed values
+      (list :major-diameter major-d
+            :pitch pitch
+            :pitch-diameter pitch-d
+            :minor-diameter minor-d
+            :standard (getf raw-spec :standard)
+            :tpi (getf raw-spec :tpi)))))
 
 (defun list-thread-specs ()
   "List all available thread specifications"
@@ -305,70 +331,81 @@
 ;;; ============================================================================
 ;;; Thread Creation
 ;;; ============================================================================
+;;;
+;;; These functions delegate to the Phase 1-4 implementation in:
+;;;   - clad.features.thread-profile (Profile geometry)
+;;;   - clad.features.helical-path (Helical path generation)
+;;;   - clad.features.helical-sweep (3D thread geometry)
+;;;
+;;; For cosmetic threads (faster, for visualization), use :cosmetic t
 
-(defun make-external-thread (designation &key length (cosmetic nil))
+(defun make-external-thread (designation &key length (cosmetic nil) (right-handed t))
   "Create external thread geometry.
 
   Args:
-    designation - Thread designation keyword (e.g., :m6, :m8, :1/4-20)
-    length - Thread length
-    cosmetic - T for cosmetic representation, NIL for detailed (default: NIL)
+    designation - Thread designation keyword (e.g., :m6, :m8, :|1/4-20|)
+    length - Thread length (mm)
+    cosmetic - T for cosmetic cylinder, NIL for full 3D helical geometry (default: NIL)
+    right-handed - T for right-handed thread, NIL for left-handed (default: T)
 
-  Returns: Solid shape representing external thread"
+  Returns: Solid shape representing external thread
+
+  For full 3D helical geometry, this delegates to Phase 1-4 implementation.
+  For cosmetic representation, a simple cylinder is returned."
 
   (unless (plusp length)
     (error "Thread length must be positive, got ~A" length))
 
   (let* ((spec (get-thread-spec designation))
          (major-dia (getf spec :major-diameter))
-         (pitch (getf spec :pitch))
-         (standard (getf spec :standard))
-         (thread-type (cond
-                        ((search "ISO" standard) :iso-metric)
-                        ((search "UNC" standard) :unified)
-                        ((search "UNF" standard) :unified)
-                        (t :iso-metric))))
+         (pitch (getf spec :pitch)))
 
-    ;; For Basic Threads (Quick Wins), use cosmetic representation
-    ;; Full helical geometry requires complex OpenCASCADE operations
-    ;; TODO: Implement detailed helical threads in future enhancement
-    ;; Use major diameter for external threads (standard practice for cosmetic threads)
-    (let* ((representation (if cosmetic :cosmetic :detailed))
-           (cylinder (clad.core:make-cylinder (/ major-dia 2.0) length))
-           (turns (floor (/ length pitch))))
-      (clad.core:make-shape (clad.core:shape-handle cylinder)
-                             :metadata (list :type :external-thread
-                                           :thread-type designation
-                                           :length length
-                                           :turns turns
-                                           :representation representation)))))
+    (if cosmetic
+        ;; Cosmetic: simple cylinder with metadata
+        (let ((cylinder (clad.core:make-cylinder (/ major-dia 2.0) length)))
+          (clad.core:make-shape (clad.core:shape-handle cylinder)
+                                :metadata (list :type :external-thread
+                                              :thread-spec designation
+                                              :length length
+                                              :turns (floor (/ length pitch))
+                                              :representation :cosmetic)))
+        ;; Full 3D: delegate to Phase 3 helical sweep
+        (clad.features.helical-sweep:make-external-thread
+         designation length :right-handed right-handed))))
 
-(defun make-internal-thread (designation &key depth (cosmetic nil))
-  "Create internal thread geometry (threaded hole).
+(defun make-internal-thread (designation &key depth (cosmetic nil) (right-handed t))
+  "Create internal thread geometry (for threaded holes).
 
   Args:
     designation - Thread designation keyword (e.g., :m6, :m8)
-    depth - Thread depth
-    cosmetic - T for cosmetic representation, NIL for detailed (default: NIL)
+    depth - Thread depth (mm)
+    cosmetic - T for cosmetic cylinder, NIL for full 3D helical geometry (default: NIL)
+    right-handed - T for right-handed thread, NIL for left-handed (default: T)
 
-  Returns: Solid shape for cutting internal thread"
+  Returns: Solid shape for cutting internal thread
+
+  For full 3D helical geometry, this delegates to Phase 1-4 implementation.
+  For cosmetic representation, a simple cylinder is returned."
 
   (unless (plusp depth)
     (error "Thread depth must be positive, got ~A" depth))
 
   (let* ((spec (get-thread-spec designation))
          (major-dia (getf spec :major-diameter))
-         (pitch (getf spec :pitch))
-         (representation (if cosmetic :cosmetic :detailed))
-         ;; Simple cylinder at major diameter for cutting
-         (cylinder (clad.core:make-cylinder (/ major-dia 2.0) depth)))
+         (pitch (getf spec :pitch)))
 
-    (clad.core:make-shape (clad.core:shape-handle cylinder)
-                           :metadata (list :type :internal-thread
-                                         :thread-type designation
-                                         :depth depth
-                                         :thread-direction :internal
-                                         :representation representation))))
+    (if cosmetic
+        ;; Cosmetic: simple cylinder with metadata
+        (let ((cylinder (clad.core:make-cylinder (/ major-dia 2.0) depth)))
+          (clad.core:make-shape (clad.core:shape-handle cylinder)
+                                :metadata (list :type :internal-thread
+                                              :thread-spec designation
+                                              :depth depth
+                                              :turns (floor (/ depth pitch))
+                                              :representation :cosmetic)))
+        ;; Full 3D: delegate to Phase 3 helical sweep
+        (clad.features.helical-sweep:make-internal-thread
+         designation depth :right-handed right-handed))))
 
 ;;; ============================================================================
 ;;; Thread Operations
@@ -422,23 +459,35 @@
 ;;; Thread Calculations
 ;;; ============================================================================
 
-(defun thread-minor-diameter (designation)
-  "Calculate minor diameter for thread.
+(defun thread-major-diameter (designation)
+  "Get major (outer) diameter for thread.
 
   Args:
     designation - Thread designation keyword
 
-  Returns: Minor diameter in mm"
+  Returns: Major diameter in mm"
+  (getf (get-thread-spec designation) :major-diameter))
 
-  (let* ((spec (get-thread-spec designation))
-         (major-dia (getf spec :major-diameter))
-         (pitch (getf spec :pitch))
-         ;; ISO metric minor diameter formula:
-         ;; minor_diameter = major_diameter - 2 * (5/8) * H
-         ;; where H = 0.866025 * pitch
-         (h (* 0.866025404 pitch))
-         (minor-dia (- major-dia (* 2.0 (/ 5.0 8.0) h))))
-    minor-dia))
+(defun thread-pitch-diameter (designation)
+  "Get pitch diameter for thread.
+
+  Args:
+    designation - Thread designation keyword
+
+  Returns: Pitch diameter in mm (computed using ISO 68-1 formula)
+
+  The pitch diameter is the effective diameter at the thread flanks,
+  used for thread engagement and helix generation."
+  (getf (get-thread-spec designation) :pitch-diameter))
+
+(defun thread-minor-diameter (designation)
+  "Get minor diameter for thread.
+
+  Args:
+    designation - Thread designation keyword
+
+  Returns: Minor diameter in mm (computed using ISO 68-1 formula)"
+  (getf (get-thread-spec designation) :minor-diameter))
 
 (defun tap-drill-size (designation)
   "Calculate recommended tap drill size.

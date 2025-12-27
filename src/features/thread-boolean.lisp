@@ -195,20 +195,16 @@
     (let ((head (case head-type
                   (:hex
                    ;; Hex head (circumradius for hex)
-                   (clad.core:make-cylinder :radius (/ h-diameter 2.0d0)
-                                           :height h-height))
+                   (clad.core:make-cylinder (/ h-diameter 2.0d0) h-height))
                   (:socket
                    ;; Cylindrical socket head
-                   (clad.core:make-cylinder :radius (/ h-diameter 2.0d0)
-                                           :height h-height))
+                   (clad.core:make-cylinder (/ h-diameter 2.0d0) h-height))
                   (t
                    ;; Default: pan head
-                   (clad.core:make-cylinder :radius (/ h-diameter 2.0d0)
-                                           :height h-height)))))
+                   (clad.core:make-cylinder (/ h-diameter 2.0d0) h-height)))))
 
       ;; Create shaft
-      (let ((shaft (clad.core:make-cylinder :radius shaft-radius
-                                           :height shaft-length)))
+      (let ((shaft (clad.core:make-cylinder shaft-radius shaft-length)))
 
         ;; Position shaft below head
         (let ((positioned-shaft (clad.core:translate shaft 0 0 h-height)))
@@ -246,18 +242,16 @@
     (let ((outer (case nut-type
                    (:hex
                     ;; Hex outer (circumradius)
-                    (clad.core:make-cylinder :radius outer-radius :height height))
+                    (clad.core:make-cylinder outer-radius height))
                    (:square
                     ;; Square outer
-                    (clad.core:make-box :width wrench-size
-                                       :depth wrench-size
-                                       :height height))
+                    (clad.core:make-box wrench-size wrench-size height))
                    (t
                     ;; Default: hex
-                    (clad.core:make-cylinder :radius outer-radius :height height)))))
+                    (clad.core:make-cylinder outer-radius height)))))
 
       ;; Create center hole
-      (let ((hole (clad.core:make-cylinder :radius hole-radius :height height)))
+      (let ((hole (clad.core:make-cylinder hole-radius height)))
 
         ;; Cut hole from outer
         (let ((nut-with-hole (clad.core:cut-shapes outer hole)))
@@ -323,7 +317,7 @@
 (defun thread-application-summary (base-shape thread-geometry applied-shape)
   "Return summary of thread application for debugging/testing."
 
-  (list :base-volume (clad.ffi:get-volume base-shape)
-        :thread-volume (clad.ffi:get-volume thread-geometry)
-        :result-volume (clad.ffi:get-volume applied-shape)
+  (list :base-volume (clad.ffi:ffi-get-volume base-shape)
+        :thread-volume (clad.ffi:ffi-get-volume thread-geometry)
+        :result-volume (clad.ffi:ffi-get-volume applied-shape)
         :result-valid (clad.ffi:is-valid-shape applied-shape)))

@@ -1531,3 +1531,4 @@
                    (add (clad.features.thread-boolean:apply-internal-thread
                          current-shape thread-geom :position ',position)))))))
 
+)

@@ -498,6 +498,29 @@ int occt_make_pipe_shell(occt_shape_t path, double radius,
                          occt_shape_t* out_shape,
                          char** out_error);
 
+/**
+ * Sweep profile along helical path with Frenet frame orientation.
+ * The profile is automatically positioned at the helix start point
+ * and oriented perpendicular to the path tangent.
+ *
+ * This is specifically designed for thread geometry creation where
+ * the profile must follow the helix while maintaining perpendicular
+ * orientation throughout the sweep.
+ *
+ * @param profile_points Array of 2D profile points (r, z pairs) defining the
+ *                       thread profile in radial coordinates. The profile will
+ *                       be converted to 3D and positioned at the helix start.
+ * @param num_profile_points Number of profile points (must be >= 3)
+ * @param path Helical path to follow (wire or edge from B-spline helix)
+ * @param out_shape Pointer to receive the swept solid
+ * @param out_error Pointer to receive error message (if any)
+ * @return Error code (OCCT_SUCCESS on success)
+ */
+int occt_make_helical_sweep(const double* profile_points, int num_profile_points,
+                            occt_shape_t path,
+                            occt_shape_t* out_shape,
+                            char** out_error);
+
 /*
  * Advanced Features - Lofts
  */

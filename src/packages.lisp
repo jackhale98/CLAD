@@ -81,6 +81,7 @@
    #:ffi-make-loft
    #:ffi-make-shell
    #:ffi-mirror-shape
+   #:ffi-make-helical-sweep
 
    ;; Shape queries
    #:ffi-get-bounding-box
@@ -119,7 +120,34 @@
    #:+geom-type-torus+
    #:+geom-type-bezier-surface+
    #:+geom-type-bspline-surface+
-   #:+geom-type-other-surface+))
+   #:+geom-type-other-surface+
+
+   ;; Type constructors (used by thread geometry)
+   #:make-gp-pnt
+   #:make-gp-dir
+   #:make-gp-vec
+
+   ;; Edge/wire construction (stub implementations)
+   #:make-edge-from-points
+   #:make-wire-from-edges
+   #:make-bspline-curve-through-points
+   #:make-edge-from-curve
+   #:get-curve-start-point
+   #:get-curve-end-point
+   #:point-x
+   #:point-y
+   #:point-z
+   #:evaluate-curve-at
+   #:is-valid-shape
+   #:is-closed-wire
+   #:count-edges
+   #:get-curve-properties
+   #:get-shape-type
+   #:get-volume
+   #:get-bounding-box
+   #:has-self-intersections
+   #:make-pipe
+   #:is-closed-solid))
 
 ;;; ============================================================================
 ;;; Layer 2: Functional Core
@@ -628,16 +656,9 @@
 
 (defpackage #:clad.features.thread-profile
   (:use #:cl)
-  (:import-from #:clad.features
-                #:get-thread-spec)
-  (:import-from #:clad.ffi
-                #:make-gp-pnt
-                #:make-edge-from-points
-                #:make-wire-from-edges
-                #:is-valid-shape
-                #:is-closed-wire
-                #:count-edges)
-  (:documentation "Thread profile geometry generation for helical sweeping")
+  (:documentation "Thread profile geometry generation for helical sweeping.
+   Uses clad.ffi and clad.features via fully qualified names to avoid
+   circular package dependencies at compile time.")
   (:export
    ;; Thread profile class
    #:thread-profile
@@ -659,21 +680,9 @@
 
 (defpackage #:clad.features.helical-path
   (:use #:cl)
-  (:import-from #:clad.features
-                #:get-thread-spec)
-  (:import-from #:clad.ffi
-                #:make-gp-pnt
-                #:make-bspline-curve-through-points
-                #:make-edge-from-curve
-                #:get-curve-start-point
-                #:get-curve-end-point
-                #:point-x
-                #:point-y
-                #:point-z
-                #:evaluate-curve-at
-                #:is-valid-shape
-                #:get-curve-properties)
-  (:documentation "Helical path generation for thread sweeping")
+  (:documentation "Helical path generation for thread sweeping.
+   Uses clad.ffi and clad.features via fully qualified names to avoid
+   circular package dependencies at compile time.")
   (:export
    ;; Helix class
    #:helix-curve
@@ -695,26 +704,9 @@
 
 (defpackage #:clad.features.helical-sweep
   (:use #:cl)
-  (:import-from #:clad.features
-                #:get-thread-spec)
-  (:import-from #:clad.features.thread-profile
-                #:thread-profile
-                #:profile-to-wire)
-  (:import-from #:clad.features.helical-path
-                #:helix-curve
-                #:get-helix-edge)
-  (:import-from #:clad.ffi
-                #:make-pipe
-                #:is-valid-shape
-                #:get-bounding-box
-                #:get-volume
-                #:get-surface-area
-                #:is-closed-solid
-                #:get-shape-type
-                #:has-self-intersections
-                #:ffi-intersect
-                #:ffi-cut)
-  (:documentation "Helical sweep operations for creating 3D thread geometry")
+  (:documentation "Helical sweep operations for creating 3D thread geometry.
+   Uses clad.ffi and clad.features via fully qualified names to avoid
+   circular package dependencies at compile time.")
   (:export
    ;; Main sweep operation
    #:sweep-profile-along-helix
@@ -736,29 +728,8 @@
 
 (defpackage #:clad.features.thread-boolean
   (:use #:cl)
-  (:import-from #:clad.features
-                #:get-thread-spec)
-  (:import-from #:clad.features.thread-profile
-                #:make-iso-metric-profile)
-  (:import-from #:clad.features.helical-path
-                #:make-helix-for-thread
-                #:make-helix-with-lead)
-  (:import-from #:clad.features.helical-sweep
-                #:make-external-thread
-                #:make-internal-thread
-                #:make-thread-with-lead
-                #:get-thread-info)
-  (:import-from #:clad.core
-                #:translate
-                #:union-shapes
-                #:cut-shapes
-                #:make-cylinder
-                #:make-box)
-  (:import-from #:clad.ffi
-                #:get-volume
-                #:is-valid-shape
-                #:get-bounding-box)
-  (:documentation "Thread boolean operations and application to parts")
+  (:documentation "Thread boolean operations and application to parts.
+   Uses clad packages via fully qualified names to avoid circular dependencies.")
   (:export
    ;; Thread application
    #:apply-external-thread
@@ -818,6 +789,8 @@
    #:cut-internal-thread
 
    ;; Thread calculations
+   #:thread-major-diameter
+   #:thread-pitch-diameter
    #:thread-minor-diameter
    #:tap-drill-size
 
@@ -903,6 +876,7 @@
   (:use #:cl)
   (:import-from #:clad.core
                 #:shape
+                #:valid-shape-p
                 #:make-box
                 #:make-cylinder
                 #:make-sphere
@@ -937,6 +911,7 @@
   (:export
    ;; From core
    #:shape
+   #:valid-shape-p
    #:make-box
    #:make-cylinder
    #:make-sphere

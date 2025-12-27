@@ -225,6 +225,68 @@
           (stub-mirror-shape shape plane-origin plane-normal)))))
 
 ;;; ============================================================================
+;;; Helical Sweep Operations (Thread Geometry)
+;;; ============================================================================
+
+(defcfun ("occt_make_helical_sweep" %occt-make-helical-sweep) :int
+  "Sweep 2D profile along helical path with proper orientation"
+  (profile-points :pointer)
+  (num-profile-points :int)
+  (path :pointer)
+  (out-shape :pointer)
+  (out-error :pointer))
+
+(defun ffi-make-helical-sweep (profile-points path)
+  "Sweep a 2D thread profile along a helical path.
+
+   PROFILE-POINTS: List of (r z) pairs defining the thread profile in cylindrical coords.
+                   The profile will be positioned at the helix start point and oriented
+                   perpendicular to the path tangent.
+   PATH: TopoDS_Edge representing the helical path (from ffi-make-interpolated-curve).
+
+   Returns: TopoDS_Shape (solid thread geometry)
+
+   This function handles the complex task of:
+   1. Positioning the profile at the helix start point
+   2. Orienting the profile perpendicular to the path tangent
+   3. Sweeping with proper Frenet frame maintenance
+
+   The profile coordinates (r, z) are interpreted as:
+   - r: radial distance from thread axis (becomes X in local coords)
+   - z: axial offset along thread (becomes Y in local coords, perpendicular to path)"
+  (let ((num-points (length profile-points)))
+    (when (< num-points 3)
+      (error 'occt-construction-error
+             :message "Need at least 3 points for thread profile"))
+
+    (if *occt-available-p*
+        (with-foreign-objects ((points-array :double (* num-points 2))
+                               (out-shape :pointer)
+                               (out-error :pointer))
+          (setf (mem-ref out-error :pointer) (null-pointer))
+
+          ;; Fill array with profile points (r, z pairs)
+          (loop for point in profile-points
+                for i from 0 by 2
+                do (setf (mem-aref points-array :double i)
+                         (coerce (first point) 'double-float))
+                   (setf (mem-aref points-array :double (1+ i))
+                         (coerce (second point) 'double-float)))
+
+          (let ((result (%occt-make-helical-sweep points-array
+                                                   num-points
+                                                   (handle-ptr path)
+                                                   out-shape
+                                                   out-error)))
+            (check-occt-result result out-error)
+            (make-occt-handle (mem-ref out-shape :pointer)
+                             :type :shape
+                             :inc-ref nil)))
+
+        ;; Stub implementation
+        (stub-make-helical-sweep profile-points path))))
+
+;;; ============================================================================
 ;;; Stub Implementations (for testing without OCCT)
 ;;; ============================================================================
 
@@ -264,4 +326,11 @@
   (declare (ignore shape plane-origin plane-normal))
   (format *error-output*
           "~&;; STUB: mirror shape (OCCT not available)~%")
+  (make-occt-handle (cffi:null-pointer) :type :shape :inc-ref nil))
+
+(defun stub-make-helical-sweep (profile-points path)
+  "Stub implementation of helical sweep."
+  (declare (ignore profile-points path))
+  (format *error-output*
+          "~&;; STUB: helical sweep (OCCT not available)~%")
   (make-occt-handle (cffi:null-pointer) :type :shape :inc-ref nil))

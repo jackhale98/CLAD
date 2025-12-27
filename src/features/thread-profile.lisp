@@ -67,7 +67,7 @@
     (error "Invalid profile type ~A. Must be :external or :internal" profile-type))
 
   (let* (;; Get thread specification parameters
-         (params (clad.features:get-thread-spec thread-spec))
+         (params (clad.features::get-thread-spec thread-spec))
          (pitch (getf params :pitch))
          (major-d (getf params :major-diameter))
 
@@ -140,24 +140,25 @@
                      (- major-r crest-flat))))
 
     ;; Generate vertices based on profile type
+    ;; The profile is a closed polygon with 4 unique vertices:
+    ;; - Two at the root radius (at z=0 and z=pitch)
+    ;; - Two at the crest radius (at z=pitch/4 and z=3*pitch/4)
+    ;; The sweep will automatically close the wire
     (if (eq type :external)
         ;; External thread profile (V pointing outward)
+        ;; Profile forms a closed quadrilateral
         (list
          (list root-r 0.0d0)                    ; V1: Root start
          (list crest-r (* pitch 0.25d0))        ; V2: Climb to crest
-         (list crest-r (* pitch 0.75d0))        ; V3: Crest flat
-         (list root-r pitch)                    ; V4: Descend to root
-         (list root-r pitch)                    ; V5: Close at same point
-         (list root-r 0.0d0))                   ; V6: Back to start
+         (list crest-r (* pitch 0.75d0))        ; V3: Crest flat end
+         (list root-r pitch))                   ; V4: Descend to root
 
         ;; Internal thread profile (V pointing inward, inverted radii)
         (list
          (list crest-r 0.0d0)                   ; V1: Start at outer (crest)
          (list root-r (* pitch 0.25d0))         ; V2: Descend to root
-         (list root-r (* pitch 0.75d0))         ; V3: Root flat
-         (list crest-r pitch)                   ; V4: Climb back to crest
-         (list crest-r pitch)                   ; V5: Close
-         (list crest-r 0.0d0)))))               ; V6: Back to start
+         (list root-r (* pitch 0.75d0))         ; V3: Root flat end
+         (list crest-r pitch)))))               ; V6: Back to start
 
 ;;; ============================================================================
 ;;; Wire Conversion (OCCT Integration)
@@ -180,35 +181,33 @@
   This creates a profile in 3D space ready for helical sweeping."
 
   (let* ((vertices (profile-vertices profile))
-         (edges '())
          (cos-angle (cos start-angle))
          (sin-angle (sin start-angle)))
 
-    ;; Convert cylindrical vertices to 3D Cartesian points
+    ;; Convert cylindrical vertices to 3D Cartesian points as (x y z) lists
     (let ((points
            (mapcar (lambda (vert)
                      (let ((r (first vert))
                            (z (second vert)))
-                       ;; Create 3D point: (x, y, z)
-                       (clad.ffi:make-gp-pnt
-                        (* r cos-angle)  ; x = r * cos(angle)
-                        (* r sin-angle)  ; y = r * sin(angle)
-                        z)))             ; z = axial position
+                       ;; Return (x y z) list for interpolated curve
+                       (list (* r cos-angle)   ; x = r * cos(angle)
+                             (* r sin-angle)   ; y = r * sin(angle)
+                             z)))              ; z = axial position
                    vertices)))
 
-      ;; Create line segments between consecutive points
-      (loop for i from 0 below (1- (length points))
-            for p1 = (nth i points)
-            for p2 = (nth (1+ i) points)
-            do (push (clad.ffi:make-edge-from-points p1 p2) edges))
+      ;; Create a closed interpolated curve through all points
+      ;; The :closed t parameter ensures the wire forms a closed loop
+      (let ((wire-edge (clad.ffi:ffi-make-interpolated-curve points :closed t)))
 
-      ;; Close the wire: connect last point to first
-      (let ((p-first (first points))
-            (p-last (car (last points))))
-        (push (clad.ffi:make-edge-from-points p-last p-first) edges))
+        ;; Verify the wire was created successfully
+        (unless (and wire-edge
+                     (clad.ffi:handle-valid-p wire-edge)
+                     (not (clad.ffi:handle-null-p wire-edge)))
+          (error "Failed to create thread profile wire - OCCT interpolation failed"))
 
-      ;; Build wire from edges
-      (clad.ffi:make-wire-from-edges (reverse edges)))))
+        ;; Convert edge to wire if needed - for now return edge as wire
+        ;; (pipe operation accepts both edges and wires)
+        wire-edge))))
 
 ;;; ============================================================================
 ;;; Utility Functions
@@ -244,8 +243,8 @@
         (warnings '()))
 
     ;; Check vertex count
-    (unless (= 6 (length vertices))
-      (push "Profile should have 6 vertices" warnings))
+    (unless (= 4 (length vertices))
+      (push "Profile should have 4 vertices" warnings))
 
     ;; Check radii are positive
     (dolist (v vertices)

@@ -34,7 +34,7 @@
   RIGHT-HANDED: T for right-handed (clockwise from top), NIL for left-handed
   NUM-POINTS: Number of control points for B-spline (default 200 for smoothness)
 
-  Returns: OCCT TopoDS_Edge representing the helical curve
+  Returns: helix-curve object containing OCCT TopoDS_Edge and metadata
 
   Parametric Helix Equations:
     x(t) = radius × cos(θ(t))
@@ -57,33 +57,36 @@
          (direction (if right-handed 1.0d0 -1.0d0))
          (points '()))
 
-    ;; Generate control points along helix
+    ;; Generate control points along helix as (x y z) lists
     (loop for i from 0 to num-points
-          for t = (/ (coerce i 'double-float) (coerce num-points 'double-float))
-          for theta = (* total-angle t)
+          for param = (/ (coerce i 'double-float) (coerce num-points 'double-float))
+          for theta = (* total-angle param)
           for x = (* radius (cos theta))
           for y = (* radius (sin theta) direction)
-          for z = (* height t)
-          do (push (clad.ffi:make-gp-pnt x y z) points))
+          for z = (* height param)
+          do (push (list x y z) points))
 
     ;; Reverse to get correct order
-    (setf points (reverse points))
+    (setf points (nreverse points))
 
-    ;; Create B-spline curve through points
-    (let ((curve (clad.ffi:make-bspline-curve-through-points points)))
+    ;; Create B-spline curve through points using real FFI function
+    ;; ffi-make-interpolated-curve creates edge directly from points
+    (let ((edge (clad.ffi:ffi-make-interpolated-curve points :closed nil)))
 
-      ;; Create edge from curve
-      (let ((edge (clad.ffi:make-edge-from-curve curve)))
+      ;; Verify the edge was created successfully
+      (unless (and edge (clad.ffi:handle-valid-p edge)
+                   (not (clad.ffi:handle-null-p edge)))
+        (error "Failed to create helical curve - OCCT interpolation failed"))
 
-        ;; Store helix with metadata
-        (make-instance 'helix-curve
-                       :edge edge
-                       :parameters (list :pitch pitch
-                                        :radius radius
-                                        :height height
-                                        :handedness (if right-handed :right-handed :left-handed)
-                                        :turns num-turns
-                                        :num-control-points (length points)))))))
+      ;; Store helix with metadata
+      (make-instance 'helix-curve
+                     :edge edge
+                     :parameters (list :pitch pitch
+                                      :radius radius
+                                      :height height
+                                      :handedness (if right-handed :right-handed :left-handed)
+                                      :turns num-turns
+                                      :num-control-points (1+ num-points))))))
 
 ;;; ============================================================================
 ;;; Thread-Specific Helix Generation
@@ -104,7 +107,7 @@
   thread profile's pitch line crosses the thread flank."
 
   ;; Get thread specification
-  (let* ((spec (clad.features:get-thread-spec thread-spec))
+  (let* ((spec (clad.features::get-thread-spec thread-spec))
          (pitch (getf spec :pitch))
          (pitch-diameter (getf spec :pitch-diameter))
          (pitch-radius (/ pitch-diameter 2.0d0)))
@@ -132,11 +135,11 @@
       (helix-parameters helix-or-edge)
 
       ;; For raw edge, extract basic geometric properties
-      (let* ((start-pt (clad.ffi:get-curve-start-point helix-or-edge))
-             (end-pt (clad.ffi:get-curve-end-point helix-or-edge))
-             (height (- (clad.ffi:point-z end-pt) (clad.ffi:point-z start-pt)))
-             (radius (sqrt (+ (expt (clad.ffi:point-x start-pt) 2)
-                             (expt (clad.ffi:point-y start-pt) 2)))))
+      (let* ((start-pt (clad.ffi::get-curve-start-point helix-or-edge))
+             (end-pt (clad.ffi::get-curve-end-point helix-or-edge))
+             (height (- (clad.ffi::point-z end-pt) (clad.ffi::point-z start-pt)))
+             (radius (sqrt (+ (expt (clad.ffi::point-x start-pt) 2)
+                             (expt (clad.ffi::point-y start-pt) 2)))))
 
         (list :radius radius
               :height height
@@ -202,7 +205,7 @@
   Returns: gp_Pnt at the specified position"
 
   (let ((edge (get-helix-edge helix)))
-    (clad.ffi:evaluate-curve-at edge parameter)))
+    (clad.ffi::evaluate-curve-at edge parameter)))
 
 ;;; ============================================================================
 ;;; Advanced Helix Features (Lead-in/Lead-out)
@@ -244,7 +247,7 @@
           for x = (* r (cos theta))
           for y = (* r (sin theta) direction)
           for z = (* lead-in-height t-local)
-          do (push (clad.ffi:make-gp-pnt x y z) points))
+          do (push (list x y z) points))
 
     ;; Generate main section (constant radius)
     (let ((main-points (- num-points (* 2 points-per-section)))
@@ -256,7 +259,7 @@
             for x = (* radius (cos theta))
             for y = (* radius (sin theta) direction)
             for z = (+ lead-in-height (* main-height t-local))
-            do (push (clad.ffi:make-gp-pnt x y z) points)))
+            do (push (list x y z) points)))
 
     ;; Generate lead-out section (radius shrinks from full to 0)
     (loop for i from 1 to points-per-section
@@ -268,12 +271,15 @@
           for x = (* r (cos theta))
           for y = (* r (sin theta) direction)
           for z = (+ lead-in-height main-height (* lead-out-height t-local))
-          do (push (clad.ffi:make-gp-pnt x y z) points))
+          do (push (list x y z) points))
 
-    ;; Reverse and create curve
-    (setf points (reverse points))
-    (let ((curve (clad.ffi:make-bspline-curve-through-points points)))
-      (clad.ffi:make-edge-from-curve curve))))
+    ;; Reverse and create curve using real FFI function
+    (setf points (nreverse points))
+    (let ((edge (clad.ffi:ffi-make-interpolated-curve points :closed nil)))
+      (unless (and edge (clad.ffi:handle-valid-p edge)
+                   (not (clad.ffi:handle-null-p edge)))
+        (error "Failed to create helix with lead - OCCT interpolation failed"))
+      edge)))
 
 ;;; ============================================================================
 ;;; Export for Testing

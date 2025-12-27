@@ -155,10 +155,12 @@
           (setf entities (append entities dim-entities))
           (incf entity-id (length dim-entities)))))
 
-    ;; Add datums
+    ;; Add datums (stored as alist: ((label . datum-object) ...))
     (let ((datums (getf metadata :datums)))
-      (dolist (datum datums)
-        (let ((datum-entities (generate-datum-entities datum entity-id)))
+      (dolist (datum-entry datums)
+        ;; Extract datum object from alist entry (label . datum-object)
+        (let* ((datum (if (consp datum-entry) (cdr datum-entry) datum-entry))
+               (datum-entities (generate-datum-entities datum entity-id)))
           (setf entities (append entities datum-entities))
           (incf entity-id (length datum-entities)))))
 
@@ -196,13 +198,20 @@
     /* Datum A on face selector: ... */
 
   Returns list of STEP entity strings."
-  (let* ((label (getf datum :label))
-         (selector (getf datum :selector))
-         (material-condition (getf datum :material-condition)))
+  ;; Handle both CLOS datum-feature objects and plists
+  (let* ((label (if (typep datum 'clad.gdt:datum-feature)
+                    (clad.gdt:datum-label datum)
+                    (getf datum :label)))
+         (selector (if (typep datum 'clad.gdt:datum-feature)
+                       (clad.gdt:datum-selector datum)
+                       (getf datum :selector)))
+         (material-condition (if (typep datum 'clad.gdt:datum-feature)
+                                 (clad.gdt:datum-material-condition datum)
+                                 (getf datum :material-condition))))
     (list
      (format nil "/* Datum ~A: ~A ~A */"
              label
-             (if material-condition
+             (if (and material-condition (not (eq material-condition :rfs)))
                  (format nil "(~A) " material-condition)
                  "")
              selector)
@@ -222,28 +231,30 @@
   (let* ((gdt-type (clad.gdt:tolerance-gdt-type tolerance))
          (zone-value (clad.gdt:tolerance-zone-value tolerance))
          (selector (clad.gdt:tolerance-feature-selector tolerance))
-         (datum-refs (clad.gdt:tolerance-datum-refs tolerance))
-         (datum-ref (when (and (not datum-refs)
-                               (fboundp 'clad.gdt:tolerance-datum-ref))
-                      (clad.gdt:tolerance-datum-ref tolerance)))
-         (material-condition (clad.gdt:tolerance-material-condition tolerance))
-         (bilateral (when (fboundp 'clad.gdt:tolerance-bilateral-p)
-                      (clad.gdt:tolerance-bilateral-p tolerance))))
+         ;; Safely get datum-refs - not all tolerance types have this slot
+         (datum-refs (when (slot-exists-p tolerance 'clad.gdt::datum-refs)
+                       (ignore-errors (clad.gdt:tolerance-datum-refs tolerance))))
+         ;; Safely get material-condition - not all tolerance types have this slot
+         (material-condition (when (slot-exists-p tolerance 'clad.gdt::material-condition)
+                               (ignore-errors (clad.gdt:tolerance-material-condition tolerance))))
+         ;; Safely get bilateral - only profile tolerances have this
+         (bilateral (when (slot-exists-p tolerance 'clad.gdt::bilateral)
+                      (ignore-errors (clad.gdt:tolerance-bilateral-p tolerance)))))
 
     (list
      (format nil "/* ~A tolerance: ~,3F mm ~A~A~A */"
              (string-upcase (symbol-name gdt-type))
              zone-value
-             (if (or datum-refs datum-ref)
+             (if datum-refs
                  (format nil "ref datum~:[~;s~] ~{~A~^,~}"
-                         (> (length (or datum-refs (list datum-ref))) 1)
-                         (or datum-refs (list datum-ref)))
+                         (> (length datum-refs) 1)
+                         datum-refs)
                  "")
              (if (and material-condition
                       (not (eq material-condition :rfs)))
                  (format nil " @ ~A" material-condition)
                  "")
-             (if (and bilateral (not (eq bilateral t)))
+             (if (and bilateral (eq bilateral nil))
                  " (unilateral)"
                  ""))
      (format nil "/*   Applied to: ~A */" selector)

@@ -12,18 +12,18 @@
 (defun sweep-profile-along-helix (profile helix &key (orientation :frenet))
   "Sweep a thread profile along a helical path to create 3D thread geometry.
 
-  PROFILE: Thread profile object (from Phase 1) or TopoDS_Wire
+  PROFILE: Thread profile object (from Phase 1) containing (r, z) vertices
   HELIX: Helical path object (from Phase 2) or TopoDS_Edge
-  ORIENTATION: Sweep orientation mode
+  ORIENTATION: Sweep orientation mode (currently not used - FFI uses Frenet)
     :frenet - Profile stays perpendicular to path (default, recommended)
     :fixed  - Profile maintains fixed orientation (can cause twisting)
 
   Returns: OCCT TopoDS_Shape (solid thread geometry)
 
   Technical Details:
-  - Uses BRepOffsetAPI_MakePipe for the sweep operation
-  - Frenet frame ensures profile remains perpendicular to helix
-  - Profile is positioned at helix start point
+  - Uses BRepOffsetAPI_MakePipeShell with Frenet frame for proper orientation
+  - Profile is automatically positioned at helix start point
+  - Profile is automatically oriented perpendicular to path tangent
   - Sweep follows the helical path maintaining profile shape
 
   The Frenet frame is a moving coordinate system that follows the curve:
@@ -33,6 +33,8 @@
 
   This ensures the profile stays perpendicular to the helix throughout
   the sweep, creating smooth, non-twisted thread geometry."
+  ;; Note: orientation parameter is reserved for future FFI enhancements
+  (declare (ignore orientation))
 
   ;; Validate inputs
   (when (null profile)
@@ -40,21 +42,23 @@
   (when (null helix)
     (error "Helix cannot be nil"))
 
-  ;; Extract wire from profile (if profile object)
-  (let ((profile-wire (extract-profile-wire profile))
+  ;; Extract profile vertices (r, z pairs) and helix edge
+  (let ((profile-vertices (extract-profile-vertices profile))
         (helix-edge (extract-helix-edge helix)))
 
-    ;; Validate shapes
-    (unless (clad.ffi:is-valid-shape profile-wire)
-      (error "Profile wire is not a valid OCCT shape"))
-    (unless (clad.ffi:is-valid-shape helix-edge)
+    ;; Validate profile vertices
+    (unless (and profile-vertices (>= (length profile-vertices) 3))
+      (error "Profile must have at least 3 vertices"))
+
+    ;; Validate helix edge
+    (unless (and helix-edge
+                 (clad.ffi:handle-valid-p helix-edge)
+                 (not (clad.ffi:handle-null-p helix-edge)))
       (error "Helix edge is not a valid OCCT shape"))
 
-    ;; Perform sweep operation using BRepOffsetAPI_MakePipe
-    (let ((use-frenet (eq orientation :frenet)))
-      (clad.ffi:make-pipe profile-wire helix-edge
-                          :use-frenet use-frenet
-                          :build-solid t))))
+    ;; Perform sweep operation using specialized helical sweep
+    ;; This handles proper profile positioning and orientation automatically
+    (clad.ffi:ffi-make-helical-sweep profile-vertices helix-edge)))
 
 ;;; ============================================================================
 ;;; High-Level Thread Geometry Creation
@@ -157,7 +161,7 @@
                   thread-spec profile-type)))
 
     ;; Create helix with lead-in/lead-out
-    (let* ((spec-params (clad.features:get-thread-spec thread-spec))
+    (let* ((spec-params (clad.features::get-thread-spec thread-spec))
            (pitch (getf spec-params :pitch))
            (pitch-radius (/ (getf spec-params :pitch-diameter) 2.0d0))
            (helix (clad.features.helical-path:make-helix-with-lead
@@ -182,18 +186,18 @@
 
   Returns: Plist with thread properties"
 
-  (let ((bbox (clad.ffi:get-bounding-box thread-shape))
-        (volume (clad.ffi:get-volume thread-shape))
-        (surface-area (clad.ffi:get-surface-area thread-shape)))
+  (multiple-value-bind (xmin ymin zmin xmax ymax zmax)
+      (clad.ffi:ffi-get-bounding-box thread-shape)
+    (let ((volume (clad.ffi:ffi-get-volume thread-shape))
+          (surface-area (clad.ffi:ffi-get-area thread-shape)))
 
-    (list :bounding-box bbox
-          :volume volume
-          :surface-area surface-area
-          :height (- (getf bbox :z-max) (getf bbox :z-min))
-          :diameter (max (- (getf bbox :x-max) (getf bbox :x-min))
-                        (- (getf bbox :y-max) (getf bbox :y-min)))
-          :is-valid (clad.ffi:is-valid-shape thread-shape)
-          :is-closed (clad.ffi:is-closed-solid thread-shape))))
+      (list :bounding-box (list xmin ymin zmin xmax ymax zmax)
+            :volume volume
+            :surface-area surface-area
+            :height (- zmax zmin)
+            :diameter (max (- xmax xmin) (- ymax ymin))
+            :is-valid (clad.ffi:is-valid-shape thread-shape)
+            :is-closed nil))))  ; Note: proper implementation requires FFI binding
 
 (defun validate-thread-geometry (thread-shape expected-length expected-diameter
                                               &key (tolerance 1.0))
@@ -244,17 +248,17 @@
 ;;; Internal Helper Functions
 ;;; ============================================================================
 
-(defun extract-profile-wire (profile)
-  "Extract TopoDS_Wire from profile object or pass through if already a wire.
+(defun extract-profile-vertices (profile)
+  "Extract (r, z) vertex pairs from profile object.
 
-  PROFILE: Either a thread-profile object or TopoDS_Wire
+  PROFILE: Thread-profile object containing vertices in cylindrical coordinates
 
-  Returns: TopoDS_Wire"
+  Returns: List of (r z) pairs"
 
   (if (typep profile 'clad.features.thread-profile:thread-profile)
-      ;; It's a profile object, convert to wire
-      (clad.features.thread-profile:profile-to-wire profile)
-      ;; Assume it's already a wire
+      ;; It's a profile object, get vertices directly
+      (clad.features.thread-profile:profile-vertices profile)
+      ;; Assume it's already a list of vertices
       profile))
 
 (defun extract-helix-edge (helix)

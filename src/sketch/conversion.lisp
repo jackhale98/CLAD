@@ -234,10 +234,17 @@
 (defun sketch-to-face (sketch &key (plane nil))
   "Convert a closed sketch to a 3D face.
    If PLANE is not provided, uses default XY plane at Z=0.
-   NOTE: Currently returns wire; proper face creation requires FFI implementation."
+
+   LIMITATION: Face creation from wire requires BRepBuilderAPI_MakeFace in FFI.
+   Currently returns the wire, which can be used for:
+   - Lofting operations (make-loft)
+   - Sweep operations (make-sweep)
+   - Pipe operations (make-pipe)
+
+   For solid extrusion, use extrude-sketch instead."
   (let ((wire (sketch-to-wire sketch :plane plane)))
-    ;; TODO: Implement proper make-face in clad.core using FFI
-    ;; For now, return the wire which can be used in lofting operations
+    ;; Wire can be used directly in many operations
+    ;; Proper face creation requires FFI binding for BRepBuilderAPI_MakeFace
     wire))
 
 ;;;; Extrusion
@@ -290,14 +297,14 @@
    AXIS is the revolution axis vector (default: Y-axis).
    ANGLE is the revolution angle in radians (default: 2π for full rotation).
    If PLANE is not provided, uses default XY plane at Z=0.
-   NOTE: This is a simplified implementation; proper revolution requires FFI support."
+
+   LIMITATION: Revolution requires BRepPrimAPI_MakeRevol in FFI.
+   Currently returns a placeholder wire. For revolution geometry,
+   consider using sweep operations with a circular path instead."
   (declare (ignore axis angle))
   (unless plane
     (setf plane (make-sketch-plane :type :xy)))
 
-  ;; TODO: Implement proper revolve operation in FFI and clad.core
-  ;; For now, create a simple approximation using lofting
-  (let ((base-wire (sketch-to-wire sketch :plane plane)))
-    ;; Return a simple loft as placeholder
-    ;; This won't create proper revolution geometry but allows tests to run
-    (clad.core:make-loft (list base-wire) :solid nil)))
+  ;; Revolution requires FFI binding for BRepPrimAPI_MakeRevol
+  ;; Return the base wire as a placeholder - users can use sweep with circular path
+  (sketch-to-wire sketch :plane plane))

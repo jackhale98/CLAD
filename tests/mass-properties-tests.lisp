@@ -187,23 +187,28 @@
 (test mass-props-inertia-box
   "Moments of inertia for a box"
   (let* ((box (clad.core:make-box 20 30 40))
-         (props (clad.analysis:mass-properties box :material :aluminum)))
-    (is (listp (getf props :inertia)) "Inertia should be a list")
-    (is (= (length (getf props :inertia)) 9) "Inertia tensor has 9 components")
+         (props (clad.analysis:mass-properties box :material :aluminum))
+         (inertia (getf props :inertia))
+         (matrix (getf inertia :matrix)))
+    (is (listp inertia) "Inertia should be a plist")
+    (is (= (length matrix) 9) "Inertia tensor has 9 components")
     ;; Diagonal elements should be positive
-    (is (> (nth 0 (getf props :inertia)) 0) "Ixx > 0")
-    (is (> (nth 4 (getf props :inertia)) 0) "Iyy > 0")
-    (is (> (nth 8 (getf props :inertia)) 0) "Izz > 0")))
+    (is (> (nth 0 matrix) 0) "Ixx > 0")
+    (is (> (nth 4 matrix) 0) "Iyy > 0")
+    (is (> (nth 8 matrix) 0) "Izz > 0")))
 
 (test mass-props-inertia-sphere
   "Moments of inertia for a sphere"
   (let* ((sphere (clad.core:make-sphere 10))
          (props (clad.analysis:mass-properties sphere :material :steel))
-         (inertia (getf props :inertia)))
-    ;; For a sphere, Ixx = Iyy = Izz
-    (is (< (abs (- (nth 0 inertia) (nth 4 inertia))) 1.0)
+         (inertia (getf props :inertia))
+         (matrix (getf inertia :matrix)))
+    ;; For a sphere, Ixx = Iyy = Izz (using bounding-box approximation)
+    ;; Note: bounding-box approximation treats sphere as a cube, so
+    ;; these values will be equal since bounding box is symmetric
+    (is (< (abs (- (nth 0 matrix) (nth 4 matrix))) 1.0)
         "Sphere should have Ixx ≈ Iyy")
-    (is (< (abs (- (nth 4 inertia) (nth 8 inertia))) 1.0)
+    (is (< (abs (- (nth 4 matrix) (nth 8 matrix))) 1.0)
         "Sphere should have Iyy ≈ Izz")))
 
 ;;; ============================================================================

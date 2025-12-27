@@ -165,21 +165,28 @@
 
 (defun list-underconstrained-entities (sketch)
   "Return a list of entities that are not fully constrained.
-   This is useful for highlighting problem areas in the sketch."
-  ;; TODO: Implement detailed analysis
-  ;; For now, return nil as placeholder
+   This is useful for highlighting problem areas in the sketch.
+
+   FUTURE: Will analyze degrees of freedom per entity and return
+   those with remaining DOF. Currently returns NIL."
+  (declare (ignore sketch))
   nil)
 
 (defun list-redundant-constraints (sketch)
   "Return a list of constraints that are redundant.
-   These constraints don't contribute to constraining the sketch."
-  ;; TODO: Implement redundancy analysis
-  ;; For now, return nil as placeholder
+   These constraints don't contribute to constraining the sketch.
+
+   FUTURE: Will use constraint graph analysis to detect
+   constraints that can be removed. Currently returns NIL."
+  (declare (ignore sketch))
   nil)
 
 (defun suggest-missing-constraints (sketch)
   "Suggest constraints that might be needed to fully constrain the sketch.
-   Returns a list of suggested constraint types."
-  ;; TODO: Implement constraint suggestion system
-  ;; For now, return nil as placeholder
+   Returns a list of suggested constraint types.
+
+   FUTURE: Will analyze sketch geometry and suggest appropriate
+   constraints (e.g., 'add horizontal constraint to line-1').
+   Currently returns NIL."
+  (declare (ignore sketch))
   nil)

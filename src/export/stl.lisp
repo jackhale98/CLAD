@@ -389,8 +389,6 @@
 ;;; Utility Functions
 ;;; ============================================================================
 
-#|
-;; TODO: Fix parenthesis balance in this function
 (defun stl-file-info (filename)
   "Get information about an STL file.
 
@@ -414,39 +412,35 @@
 
         ;; "solid" in ASCII = bytes (115 111 108 105 100)
         (let ((is-ascii-start (and (= (aref first-bytes 0) 115)
-                                    (= (aref first-bytes 1) 111)
-                                    (= (aref first-bytes 2) 108)
-                                    (= (aref first-bytes 3) 105)
-                                    (= (aref first-bytes 4) 100))))
+                                   (= (aref first-bytes 1) 111)
+                                   (= (aref first-bytes 2) 108)
+                                   (= (aref first-bytes 3) 105)
+                                   (= (aref first-bytes 4) 100))))
 
-          (if is-ascii-start
-              ;; Might be ASCII - check if text file
-              (progn
-                (file-position stream 0)
-                (with-open-file (text-stream filename :direction :input
-                                            :if-does-not-exist nil)
-                  (when text-stream
-                    (let ((first-line (read-line text-stream nil)))
-                      (when (and first-line (search "solid" first-line))
-                        ;; Definitely ASCII
-                        ;; Count facets
-                        (let ((facet-count 0))
-                          (loop for line = (read-line text-stream nil)
-                                while line
-                                when (search "facet" line)
-                                do (incf facet-count))
-                          (return-from stl-file-info
-                            (list :format :ascii
-                                  :triangle-count facet-count
-                                  :file-size file-size)))))))
-                ;; If not confirmed ASCII, treat as binary
-                nil)
+          (cond
+            ;; Try ASCII detection
+            (is-ascii-start
+             (file-position stream 0)
+             (with-open-file (text-stream filename :direction :input
+                                          :if-does-not-exist nil)
+               (when text-stream
+                 (let ((first-line (read-line text-stream nil)))
+                   (when (and first-line (search "solid" first-line))
+                     ;; Definitely ASCII - count facets
+                     (let ((facet-count 0))
+                       (loop for line = (read-line text-stream nil)
+                             while line
+                             when (search "facet" line)
+                             do (incf facet-count))
+                       (return-from stl-file-info
+                         (list :format :ascii
+                               :triangle-count facet-count
+                               :file-size file-size))))))))
 
-              ;; Binary format
-              nil)
+            ;; Binary format (or ASCII detection failed)
+            (t nil))
 
-          ;; Default to binary format if we reach here
-          ;; Seek to triangle count (after 80-byte header)
+          ;; Default to binary format parsing
           (file-position stream 80)
           (let ((count-bytes (make-array 4 :element-type '(unsigned-byte 8))))
             (read-sequence count-bytes stream)
@@ -456,8 +450,7 @@
                                      (ash (aref count-bytes 3) 24))))
               (list :format :binary
                     :triangle-count triangle-count
-                    :file-size file-size))))))))))
-|#
+                    :file-size file-size))))))))
 
 ;;; ============================================================================
 ;;; End of STL Export Module

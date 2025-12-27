@@ -147,17 +147,21 @@
 (defun calculate-inertia-tensor (shape density)
   "Calculate the inertia tensor for a shape.
 
-  For now, this is a simplified implementation.
-  Returns a 9-element list representing the 3x3 inertia tensor.
+  Returns a plist with:
+    :ixx :iyy :izz - Principal moments of inertia
+    :ixy :ixz :iyz - Products of inertia (cross terms)
+    :matrix - Full 9-element list (row-major 3x3 tensor)
 
-  TODO: Implement proper inertia calculation using OpenCASCADE GProp_GProps"
+  LIMITATION: Uses bounding-box approximation. Accurate inertia calculation
+  requires exposing GProp_GProps::MatrixOfInertia in FFI. The approximation
+  assumes a solid rectangular prism with the same bounding box and mass.
 
-  ;; Simplified calculation - get volume and center
+  For simple prismatic shapes, this is reasonably accurate.
+  For complex geometry (hollow, asymmetric), use dedicated FEA tools."
+
   (let* ((volume-mm3 (clad.ffi:ffi-get-volume (clad.core:shape-handle shape)))
-         (volume-cm3 (/ volume-mm3 1000.0))
+         (volume-cm3 (/ volume-mm3 1000.0d0))
          (mass-g (* density volume-cm3))
-         ;; For a rough approximation, assume a bounding box
-         ;; This is a placeholder - proper implementation would use GProp_GProps::MatrixOfInertia
          ;; bounding-box returns (xmin ymin zmin xmax ymax zmax)
          (bbox (clad.shapes:bounding-box shape))
          (xmin (nth 0 bbox))
@@ -169,15 +173,25 @@
          (dx (- xmax xmin))
          (dy (- ymax ymin))
          (dz (- zmax zmin))
-         ;; Approximate as rectangular box inertia
-         (ixx (* (/ mass-g 12.0) (+ (* dy dy) (* dz dz))))
-         (iyy (* (/ mass-g 12.0) (+ (* dx dx) (* dz dz))))
-         (izz (* (/ mass-g 12.0) (+ (* dx dx) (* dy dy)))))
+         ;; Solid rectangular prism inertia formulas (about center of mass)
+         ;; Ixx = (1/12) * m * (dy² + dz²)
+         ;; Iyy = (1/12) * m * (dx² + dz²)
+         ;; Izz = (1/12) * m * (dx² + dy²)
+         (ixx (* (/ mass-g 12.0d0) (+ (* dy dy) (* dz dz))))
+         (iyy (* (/ mass-g 12.0d0) (+ (* dx dx) (* dz dz))))
+         (izz (* (/ mass-g 12.0d0) (+ (* dx dx) (* dy dy)))))
 
-    ;; Return 3x3 tensor (row-major order)
-    (list ixx  0.0  0.0    ; Row 1: Ixx Ixy Ixz
-          0.0  iyy  0.0    ; Row 2: Iyx Iyy Iyz
-          0.0  0.0  izz))) ; Row 3: Izx Izy Izz
+    ;; Return structured result
+    (list :ixx ixx
+          :iyy iyy
+          :izz izz
+          :ixy 0.0d0  ; Cross terms are zero for axis-aligned bbox approximation
+          :ixz 0.0d0
+          :iyz 0.0d0
+          :matrix (list ixx  0.0d0  0.0d0    ; Row 1: Ixx Ixy Ixz
+                        0.0d0  iyy  0.0d0    ; Row 2: Iyx Iyy Iyz
+                        0.0d0  0.0d0  izz)   ; Row 3: Izx Izy Izz
+          :approximation :bounding-box)))
 
 ;;; ============================================================================
 ;;; Convenience Functions

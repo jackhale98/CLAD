@@ -20,7 +20,7 @@
 
 (test test-apply-external-thread-basic
   "Verify external thread can be applied to a cylinder"
-  (let* ((cylinder (clad.core:make-cylinder :radius 3.0 :height 50.0))
+  (let* ((cylinder (clad.core:make-cylinder 3.0 50.0))
          (thread (clad.features.helical-sweep:make-external-thread :m6 30.0))
          (threaded-shaft (clad.features.thread-boolean:apply-external-thread
                           cylinder thread
@@ -41,7 +41,7 @@
   (let* ((shaft-radius 3.0)
          (shaft-height 60.0)
          (thread-length 40.0)
-         (cylinder (clad.core:make-cylinder :radius shaft-radius :height shaft-height))
+         (cylinder (clad.core:make-cylinder shaft-radius shaft-height))
          (thread (clad.features.helical-sweep:make-external-thread :m6 thread-length))
          (threaded-shaft (clad.features.thread-boolean:apply-external-thread
                           cylinder thread :position '(0 0 10.0)))
@@ -62,7 +62,7 @@
 
 (test test-multiple-threads-on-shaft
   "Verify multiple thread sections can be applied to one shaft"
-  (let* ((cylinder (clad.core:make-cylinder :radius 4.0 :height 100.0))
+  (let* ((cylinder (clad.core:make-cylinder 4.0 100.0))
          (thread1 (clad.features.helical-sweep:make-external-thread :m6 20.0))
          (thread2 (clad.features.helical-sweep:make-external-thread :m8 25.0))
          (shaft-with-one (clad.features.thread-boolean:apply-external-thread
@@ -82,8 +82,8 @@
 
 (test test-apply-internal-thread-basic
   "Verify internal thread can be cut into a hole"
-  (let* ((outer-block (clad.core:make-box :width 20.0 :depth 20.0 :height 30.0))
-         (hole-cylinder (clad.core:make-cylinder :radius 2.5 :height 30.0))
+  (let* ((outer-block (clad.core:make-box 20.0 20.0 30.0))
+         (hole-cylinder (clad.core:make-cylinder 2.5 30.0))
          (block-with-hole (clad.core:cut-shapes outer-block hole-cylinder))
          (thread (clad.features.helical-sweep:make-internal-thread :m6 20.0))
          (threaded-hole (clad.features.thread-boolean:apply-internal-thread
@@ -106,8 +106,8 @@
   "Verify threaded hole has correct depth"
   (let* ((block-height 40.0)
          (thread-depth 25.0)
-         (outer-block (clad.core:make-box :width 30.0 :depth 30.0 :height block-height))
-         (hole-cylinder (clad.core:make-cylinder :radius 3.0 :height block-height))
+         (outer-block (clad.core:make-box 30.0 30.0 block-height))
+         (hole-cylinder (clad.core:make-cylinder 3.0 block-height))
          (block-with-hole (clad.core:cut-shapes outer-block hole-cylinder))
          (thread (clad.features.helical-sweep:make-internal-thread :m8 thread-depth))
          (threaded-hole (clad.features.thread-boolean:apply-internal-thread
@@ -251,7 +251,7 @@
 
 (test test-thread-positioning
   "Verify thread can be positioned at specific coordinates"
-  (let* ((cylinder (clad.core:make-cylinder :radius 3.0 :height 100.0))
+  (let* ((cylinder (clad.core:make-cylinder 3.0 100.0))
          (thread (clad.features.helical-sweep:make-external-thread :m6 20.0))
          (position '(0 0 30.0))  ; 30mm from origin
          (threaded-shaft (clad.features.thread-boolean:apply-external-thread

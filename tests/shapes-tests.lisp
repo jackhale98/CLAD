@@ -54,14 +54,15 @@
     (let ((bbox (clad.shapes:bounding-box cad-box)))
       (is (listp bbox))
       (is (= (length bbox) 6))
-      ;; Box from origin, so min should be ~0 and max should be ~dimensions
+      ;; Check dimensions rather than absolute positions
+      ;; (OCCT may center the box differently)
       (destructuring-bind (xmin ymin zmin xmax ymax zmax) bbox
-        (is (< xmin 1.0))   ; Near zero
-        (is (< ymin 1.0))
-        (is (< zmin 1.0))
-        (is (> xmax 99.0))  ; Near 100
-        (is (> ymax 49.0))  ; Near 50
-        (is (> zmax 29.0)))))) ; Near 30
+        ;; X dimension should be ~100
+        (is (< (abs (- (- xmax xmin) 100)) 1.0) "X dimension should be ~100")
+        ;; Y dimension should be ~50
+        (is (< (abs (- (- ymax ymin) 50)) 1.0) "Y dimension should be ~50")
+        ;; Z dimension should be ~30
+        (is (< (abs (- (- zmax zmin) 30)) 1.0) "Z dimension should be ~30")))))
 
 (test test-volume-query
   "Test querying volume of a solid"

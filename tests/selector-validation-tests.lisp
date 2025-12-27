@@ -1,62 +1,66 @@
-;;;; tests/selector-validation-tests.lisp --- Selector validation tests (Priority 2)
+;;;; tests/selector-validation-tests.lisp --- Selector validation tests
 
 (in-package :clad.tests)
 
 (in-suite clad-tests)
 
 ;;; ============================================================================
-;;; Priority 2: Selector Validation Tests
+;;; Selector API Tests
 ;;; ============================================================================
 
-(test selector-matches-nothing-warning
-  "Selectors that match no features should warn (non-critical)"
-  ;; This test documents expected behavior for selector warnings
-  ;; When a selector matches nothing, it should generate a warning but not error
-  (let ((box (clad.core:make-box 100 100 10)))
-    ;; This selector will match nothing (no circular faces on a box)
-    (let ((result (clad.selectors:select box '(:on-face :type :cylindrical))))
+(test selector-matches-nothing-empty-list
+  "Selectors that match no features should return empty list"
+  (let* ((box (clad.core:make-box 100 100 10))
+         (wrapped (clad.shapes:wrap-shape box 'clad.shapes:cad-solid))
+         (faces (clad.shapes:faces wrapped)))
+    ;; Select cylindrical faces (there are none on a box) using type selector
+    (let ((result (clad.selectors:select faces :type :cylindrical)))
       (is (null result) "Selector matching nothing should return empty list"))))
 
-(test selector-matches-multiple-ok
-  "Selectors matching multiple features should be OK"
-  (let ((box (clad.core:make-box 100 100 10)))
-    ;; Box has 6 faces
-    (let ((result (clad.selectors:select box '(:on-face))))
-      (is (= 6 (length result)) "Box should have 6 faces"))))
+(test selector-matches-multiple-faces
+  "Selectors matching multiple features should work"
+  (let* ((box (clad.core:make-box 100 100 10))
+         (wrapped (clad.shapes:wrap-shape box 'clad.shapes:cad-solid))
+         (faces (clad.shapes:faces wrapped)))
+    ;; Box has 6 planar faces - :type :plane matches planar faces (see type-selectors.lisp)
+    (let ((result (clad.selectors:select faces :type :plane)))
+      ;; All 6 faces are planar
+      (is (= 6 (length result)) "Box should have 6 planar faces"))))
 
-(test selector-extreme-with-no-match
-  "Extreme selector with no candidates should warn"
-  (let ((box (clad.core:make-box 100 100 10)))
-    ;; Try to find extreme in direction that matches no faces
-    (let ((result (clad.selectors:select box '(:on-face :direction :+z :extreme :max))))
-      ;; This should find the top face
+(test selector-direction-extreme
+  "Direction selector with extreme should find one face"
+  (let* ((box (clad.core:make-box 100 100 10))
+         (wrapped (clad.shapes:wrap-shape box 'clad.shapes:cad-solid))
+         (faces (clad.shapes:faces wrapped)))
+    ;; Find the top face (highest Z)
+    (let ((result (clad.selectors:select faces :direction :+z :extreme :max)))
       (is (= 1 (length result)) "Should find exactly one extreme face"))))
+
+(test selector-direction-without-extreme
+  "Direction selector without extreme should find all matching faces"
+  (let* ((box (clad.core:make-box 100 100 10))
+         (wrapped (clad.shapes:wrap-shape box 'clad.shapes:cad-solid))
+         (faces (clad.shapes:faces wrapped)))
+    ;; Find faces with normal pointing in +Z or -Z direction
+    (let ((result-up (clad.selectors:select faces :direction :+z))
+          (result-down (clad.selectors:select faces :direction :-z)))
+      ;; Box has top and bottom faces
+      (is (>= (length result-up) 1) "Should find at least one +Z face")
+      (is (>= (length result-down) 1) "Should find at least one -Z face"))))
+
+;;; ============================================================================
+;;; GD&T Selector Validation
+;;; ============================================================================
 
 (test gdt-selector-validation
   "GD&T selectors should validate at compile time when possible"
-  ;; Test that GD&T forms validate selectors
-  ;; This is more of an integration test
+  ;; Test that GD&T forms with selectors compile
   (finishes
     (eval '(clad.dsl:defpart selector-validation-test ()
              "Test part for selector validation"
              (:body (clad.core:make-box 100 100 10))
              (:datum "A" :on-face :direction :-z :extreme :min)
              (:flatness :on-face :direction :+z :extreme :max :tolerance 0.05)))))
-
-;;; ============================================================================
-;;; Selector Validation with Runtime Checks
-;;; ============================================================================
-
-(test runtime-selector-empty-match
-  "Runtime selector validation should handle empty matches gracefully"
-  ;; When selectors match nothing at runtime, the system should handle it gracefully
-  (let* ((box (clad.core:make-box 100 100 10))
-         (wrapped (clad.shapes:wrap-shape box)))
-    ;; Select cylindrical faces (there are none on a box)
-    (let ((faces (clad.selectors:select wrapped '(:on-face :type :cylindrical))))
-      (is (null faces) "Should return empty list for no matches")
-      ;; Verify no error was thrown
-      (is (listp faces) "Should return a list even when empty"))))
 
 (test selector-validation-metadata
   "Test that selector validation doesn't interfere with metadata"
