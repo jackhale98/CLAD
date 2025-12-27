@@ -73,6 +73,8 @@
 #include <BRepOffsetAPI_ThruSections.hxx>
 #include <BRepOffsetAPI_MakeThickSolid.hxx>
 #include <BRepPrimAPI_MakePrism.hxx>
+#include <BRepPrimAPI_MakeRevol.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
 #include <TopTools_ListOfShape.hxx>
 #include <gp_Ax2.hxx>
 
@@ -1823,6 +1825,154 @@ int occt_mirror_shape(occt_shape_t shape,
         // Apply transformation
         BRepBuilderAPI_Transform transformer(*s, transformation, Standard_True);
         TopoDS_Shape* result = new TopoDS_Shape(transformer.Shape());
+        *out_shape = result;
+        return OCCT_SUCCESS;
+    TRY_CATCH_END(out_error)
+}
+
+/*
+ * Sketch Operations - Face, Extrude, Revolve
+ */
+
+int occt_make_face_from_wire(occt_shape_t wire,
+                              int planar_only,
+                              occt_shape_t* out_face,
+                              char** out_error)
+{
+    if (!out_face) return OCCT_ERROR_NULL_OBJECT;
+    if (!wire) {
+        if (out_error) *out_error = strdup("Null input wire");
+        return OCCT_ERROR_NULL_OBJECT;
+    }
+    if (out_error) *out_error = nullptr;
+
+    TRY_CATCH_BEGIN
+        TopoDS_Shape* w = static_cast<TopoDS_Shape*>(wire);
+        TopoDS_Wire the_wire;
+
+        // Handle both wire and edge inputs
+        if (w->ShapeType() == TopAbs_WIRE) {
+            the_wire = TopoDS::Wire(*w);
+        } else if (w->ShapeType() == TopAbs_EDGE) {
+            // Convert single edge to wire
+            BRepBuilderAPI_MakeWire wireMaker;
+            wireMaker.Add(TopoDS::Edge(*w));
+            if (!wireMaker.IsDone()) {
+                if (out_error) *out_error = strdup("Failed to convert edge to wire");
+                return OCCT_ERROR_CONSTRUCTION;
+            }
+            the_wire = wireMaker.Wire();
+        } else {
+            if (out_error) *out_error = strdup("Input shape is not a wire or edge");
+            return OCCT_ERROR_DOMAIN;
+        }
+
+        // Create face from wire
+        // BRepBuilderAPI_MakeFace will auto-detect if planar
+        BRepBuilderAPI_MakeFace faceMaker(the_wire, planar_only != 0);
+
+        if (!faceMaker.IsDone()) {
+            if (out_error) {
+                switch (faceMaker.Error()) {
+                    case BRepBuilderAPI_NoFace:
+                        *out_error = strdup("No face could be created from wire");
+                        break;
+                    case BRepBuilderAPI_NotPlanar:
+                        *out_error = strdup("Wire is not planar");
+                        break;
+                    case BRepBuilderAPI_CurveProjectionFailed:
+                        *out_error = strdup("Curve projection failed");
+                        break;
+                    default:
+                        *out_error = strdup("Face construction failed");
+                        break;
+                }
+            }
+            return OCCT_ERROR_CONSTRUCTION;
+        }
+
+        TopoDS_Shape* result = new TopoDS_Shape(faceMaker.Face());
+        *out_face = result;
+        return OCCT_SUCCESS;
+    TRY_CATCH_END(out_error)
+}
+
+int occt_make_prism(occt_shape_t base_shape,
+                    double dx, double dy, double dz,
+                    int make_solid,
+                    occt_shape_t* out_shape,
+                    char** out_error)
+{
+    if (!out_shape) return OCCT_ERROR_NULL_OBJECT;
+    if (!base_shape) {
+        if (out_error) *out_error = strdup("Null input shape");
+        return OCCT_ERROR_NULL_OBJECT;
+    }
+    if (out_error) *out_error = nullptr;
+
+    TRY_CATCH_BEGIN
+        TopoDS_Shape* base = static_cast<TopoDS_Shape*>(base_shape);
+
+        // Direction vector for extrusion
+        gp_Vec direction(dx, dy, dz);
+
+        // Create prism (linear extrusion)
+        // If base is a face, creates a solid
+        // If base is a wire, creates a shell (or solid if make_solid)
+        BRepPrimAPI_MakePrism prismMaker(*base, direction, Standard_False);
+
+        if (!prismMaker.IsDone()) {
+            if (out_error) *out_error = strdup("Prism construction failed");
+            return OCCT_ERROR_CONSTRUCTION;
+        }
+
+        TopoDS_Shape result_shape = prismMaker.Shape();
+
+        // If we want a solid and got a shell, try to build solid
+        if (make_solid && result_shape.ShapeType() == TopAbs_SHELL) {
+            // For a wire input that created a shell, we can't easily make it solid
+            // The caller should use a face as input for guaranteed solid output
+        }
+
+        TopoDS_Shape* result = new TopoDS_Shape(result_shape);
+        *out_shape = result;
+        return OCCT_SUCCESS;
+    TRY_CATCH_END(out_error)
+}
+
+int occt_make_revol(occt_shape_t base_shape,
+                    double axis_px, double axis_py, double axis_pz,
+                    double axis_dx, double axis_dy, double axis_dz,
+                    double angle_radians,
+                    occt_shape_t* out_shape,
+                    char** out_error)
+{
+    if (!out_shape) return OCCT_ERROR_NULL_OBJECT;
+    if (!base_shape) {
+        if (out_error) *out_error = strdup("Null input shape");
+        return OCCT_ERROR_NULL_OBJECT;
+    }
+    if (out_error) *out_error = nullptr;
+
+    TRY_CATCH_BEGIN
+        TopoDS_Shape* base = static_cast<TopoDS_Shape*>(base_shape);
+
+        // Create axis of revolution
+        gp_Pnt axis_point(axis_px, axis_py, axis_pz);
+        gp_Dir axis_direction(axis_dx, axis_dy, axis_dz);
+        gp_Ax1 axis(axis_point, axis_direction);
+
+        // Create revolution
+        // If angle is 2*PI (or close), creates full revolution
+        // Otherwise creates partial revolution
+        BRepPrimAPI_MakeRevol revolMaker(*base, axis, angle_radians, Standard_True);
+
+        if (!revolMaker.IsDone()) {
+            if (out_error) *out_error = strdup("Revolution construction failed");
+            return OCCT_ERROR_CONSTRUCTION;
+        }
+
+        TopoDS_Shape* result = new TopoDS_Shape(revolMaker.Shape());
         *out_shape = result;
         return OCCT_SUCCESS;
     TRY_CATCH_END(out_error)

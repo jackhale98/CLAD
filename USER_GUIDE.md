@@ -1477,13 +1477,88 @@ Add geometric constraints to control the sketch:
   (clad.sketch.constraints:make-distance-constraint *p2* *p3* 50.0d0))
 
 ;; Solve constraints
-(clad.sketch:solve-sketch *sketch*)
+(clad.sketch.solver:solve-sketch *sketch*)
+```
 
-;; Convert to 3D wire
-(defparameter *wire* (clad.sketch.conversion:sketch-to-wire *sketch*))
+### Sketch to 3D Conversion
 
-;; Extrude to 3D
-(defparameter *part* (clad.core:extrude *wire* 20))
+CLAD provides full support for converting 2D sketches to 3D solids.
+
+**Convert to Face:**
+```lisp
+;; Convert closed sketch to a 3D face
+(clad.sketch:sketch-to-face sketch)
+```
+
+**Extrude a Sketch:**
+```lisp
+;; Extrude sketch to create a solid
+(clad.sketch:extrude-sketch sketch distance)
+
+;; With custom direction
+(clad.sketch:extrude-sketch sketch distance :direction '(0 0 1))
+
+;; On a different plane
+(let ((plane (clad.sketch:make-sketch-plane :type :yz)))
+  (clad.sketch:extrude-sketch sketch 20 :plane plane))
+```
+
+**Revolve a Sketch:**
+```lisp
+;; Full revolution around Y axis (default)
+(clad.sketch:revolve-sketch sketch)
+
+;; Partial revolution (90 degrees)
+(clad.sketch:revolve-sketch sketch :angle (/ pi 2))
+
+;; Revolution around Z axis
+(clad.sketch:revolve-sketch sketch :axis-direction '(0 0 1))
+
+;; Revolution around arbitrary axis
+(clad.sketch:revolve-sketch sketch
+  :axis-point '(10 0 0)
+  :axis-direction '(0 1 0)
+  :angle (* 2 pi))
+```
+
+### Complete Example - Extruded Profile
+
+```lisp
+;; Create a sketch with a circular profile
+(let* ((sketch (clad.sketch:make-sketch))
+       (center (clad.sketch:make-point-2d 0 0))
+       (circle (clad.sketch:make-circle-2d center 15.0)))
+  ;; Add circle to sketch
+  (clad.sketch:add-entity sketch circle)
+  ;; Extrude to create a cylinder
+  (clad.sketch:extrude-sketch sketch 30.0))
+```
+
+### Complete Example - Revolved Profile (Torus)
+
+```lisp
+;; Create a torus by revolving a circle
+(let* ((sketch (clad.sketch:make-sketch))
+       ;; Circle offset from axis
+       (center (clad.sketch:make-point-2d 30 0))
+       (circle (clad.sketch:make-circle-2d center 5.0)))
+  (clad.sketch:add-entity sketch circle)
+  ;; Full revolution creates a torus
+  (clad.sketch:revolve-sketch sketch :axis-direction '(0 1 0)))
+```
+
+### Sketch Planes
+
+Define the plane on which your sketch lives:
+
+```lisp
+;; Standard planes
+(clad.sketch:make-sketch-plane :type :xy)  ; XY plane at Z=0 (default)
+(clad.sketch:make-sketch-plane :type :yz)  ; YZ plane at X=0
+(clad.sketch:make-sketch-plane :type :xz)  ; XZ plane at Y=0
+
+;; With offset origin
+(clad.sketch:make-sketch-plane :type :xy :origin '(0 0 50))
 ```
 
 ---

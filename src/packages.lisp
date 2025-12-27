@@ -83,6 +83,11 @@
    #:ffi-mirror-shape
    #:ffi-make-helical-sweep
 
+   ;; Sketch operations (Face, Extrude, Revolve)
+   #:ffi-make-face-from-wire
+   #:ffi-make-prism
+   #:ffi-make-revol
+
    ;; Shape queries
    #:ffi-get-bounding-box
    #:ffi-get-volume
@@ -1026,6 +1031,7 @@
    #:plane-x-axis
    #:plane-y-axis
    #:plane-name
+   #:transform-2d-to-3d
    #:sketch-to-wire
    #:sketch-to-face
    #:extrude-sketch

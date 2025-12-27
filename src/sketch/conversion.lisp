@@ -154,12 +154,13 @@
   nil)
 
 (defmethod entity-to-wire ((entity line-2d) plane)
-  "Convert a 2D line to a 3D wire segment"
+  "Convert a 2D line to a 3D edge"
   (let* ((p1 (line-start entity))
          (p2 (line-end entity))
          (p1-3d (transform-2d-to-3d (point-x p1) (point-y p1) plane))
          (p2-3d (transform-2d-to-3d (point-x p2) (point-y p2) plane)))
-    (clad.core:make-wire (list (clad.core:make-line p1-3d p2-3d)))))
+    ;; Return edge directly, sketch-to-wire will combine into wire
+    (clad.core:make-line p1-3d p2-3d)))
 
 (defmethod entity-to-wire ((entity circle-2d) plane)
   "Convert a 2D circle to a 3D wire"
@@ -197,9 +198,8 @@
                           (* (first x-axis) (third y-axis)))
                       (- (* (first x-axis) (second y-axis))
                           (* (second x-axis) (first y-axis))))))
-    ;; Create arc and wrap in wire
-    (clad.core:make-wire
-     (list (clad.core:make-arc center-3d radius start-deg end-deg :axis normal)))))
+    ;; Return arc edge directly
+    (clad.core:make-arc center-3d radius start-deg end-deg :axis normal)))
 
 (defmethod entity-to-wire ((entity spline-2d) plane)
   "Convert a 2D spline to a 3D wire"
@@ -218,34 +218,42 @@
     (when (null entities)
       (error "Cannot convert empty sketch to wire"))
 
-    ;; For a single entity (like a circle), just convert it
-    (if (= (length entities) 1)
-        (entity-to-wire (first entities) plane)
-        ;; For multiple entities, we need to connect them
-        ;; For now, create individual wires and combine them
-        (let ((wires (remove nil (mapcar (lambda (e) (entity-to-wire e plane)) entities))))
-          (if (= (length wires) 1)
-              (first wires)
-              ;; Combine multiple wires using make-wire
-              (clad.core:make-wire wires))))))
+    ;; Convert all entities to edges/wires
+    (let ((edges (remove nil (mapcar (lambda (e) (entity-to-wire e plane)) entities))))
+      (cond
+        ;; No entities produced edges
+        ((null edges)
+         (error "No edges generated from sketch entities"))
+        ;; Single edge/wire - return it directly
+        ((= (length edges) 1)
+         (first edges))
+        ;; Multiple edges - combine into a wire
+        (t
+         ;; Extract handles for make-wire
+         (clad.core:make-wire edges))))))
 
 ;;;; Sketch to Face Conversion
 
-(defun sketch-to-face (sketch &key (plane nil))
+(defun sketch-to-face (sketch &key (plane nil) (planar-only t))
   "Convert a closed sketch to a 3D face.
    If PLANE is not provided, uses default XY plane at Z=0.
+   PLANAR-ONLY if t, only allows planar wires; if nil, attempts non-planar.
 
-   LIMITATION: Face creation from wire requires BRepBuilderAPI_MakeFace in FFI.
-   Currently returns the wire, which can be used for:
-   - Lofting operations (make-loft)
-   - Sweep operations (make-sweep)
-   - Pipe operations (make-pipe)
+   Returns a face shape that can be used for:
+   - Extrusion operations (extrude-sketch)
+   - Revolution operations (revolve-sketch)
+   - Boolean operations
 
-   For solid extrusion, use extrude-sketch instead."
-  (let ((wire (sketch-to-wire sketch :plane plane)))
-    ;; Wire can be used directly in many operations
-    ;; Proper face creation requires FFI binding for BRepBuilderAPI_MakeFace
-    wire))
+   Example:
+     (let* ((sketch (make-sketch))
+            (center (make-point-2d 0 0))
+            (circle (make-circle-2d center 10)))
+       (add-entity sketch circle)
+       (sketch-to-face sketch))"
+  (let* ((wire (sketch-to-wire sketch :plane plane))
+         (wire-handle (clad.core:shape-handle wire)))
+    ;; Use FFI to create face from wire
+    (clad.ffi:ffi-make-face-from-wire wire-handle :planar-only planar-only)))
 
 ;;;; Extrusion
 
@@ -253,7 +261,16 @@
   "Extrude a sketch along a direction to create a 3D solid.
    DISTANCE is the extrusion length.
    DIRECTION is the extrusion direction vector (default: normal to plane).
-   If PLANE is not provided, uses default XY plane at Z=0."
+   If PLANE is not provided, uses default XY plane at Z=0.
+
+   Returns a solid shape.
+
+   Example:
+     (let* ((sketch (make-sketch))
+            (center (make-point-2d 0 0))
+            (circle (make-circle-2d center 10)))
+       (add-entity sketch circle)
+       (extrude-sketch sketch 20))  ; Creates cylinder of height 20"
   (unless plane
     (setf plane (make-sketch-plane :type :xy)))
 
@@ -270,41 +287,52 @@
                   (- (* (first x-axis) (second y-axis))
                      (* (second x-axis) (first y-axis)))))))
 
-  ;; Normalize direction vector
+  ;; Normalize direction vector and scale by distance
   (let* ((len (sqrt (+ (* (first direction) (first direction))
                        (* (second direction) (second direction))
                        (* (third direction) (third direction)))))
-         (norm-dir (list (/ (first direction) len)
-                         (/ (second direction) len)
-                         (/ (third direction) len))))
+         (extrusion-vec (list (* (/ (first direction) len) distance)
+                              (* (/ (second direction) len) distance)
+                              (* (/ (third direction) len) distance))))
 
-    ;; Get the base wire
-    (let* ((base-wire (sketch-to-wire sketch :plane plane))
-           ;; Create translated wire at the end of extrusion
-           ;; We'll use lofting between the base and translated wire
-           (dx (* (first norm-dir) distance))
-           (dy (* (second norm-dir) distance))
-           (dz (* (third norm-dir) distance))
-           (top-wire (clad.core:translate base-wire dx dy dz)))
-
-      ;; Use lofting to create solid between base and top
-      (clad.core:make-loft (list base-wire top-wire) :solid t :ruled t))))
+    ;; Create face from sketch, then extrude using prism
+    (let* ((face (sketch-to-face sketch :plane plane))
+           (face-handle (if (typep face 'clad.ffi:occt-handle)
+                            face
+                            (clad.core:shape-handle face))))
+      ;; Use FFI prism for proper solid extrusion
+      (clad.ffi:ffi-make-prism face-handle extrusion-vec :make-solid t))))
 
 ;;;; Revolution
 
-(defun revolve-sketch (sketch &key (plane nil) (axis '(0 1 0)) (angle (* 2 pi)))
+(defun revolve-sketch (sketch &key (plane nil) (axis-point '(0 0 0)) (axis-direction '(0 1 0)) (angle (* 2 pi)))
   "Revolve a sketch around an axis to create a solid of revolution.
-   AXIS is the revolution axis vector (default: Y-axis).
+   AXIS-POINT is a point (x y z) on the revolution axis.
+   AXIS-DIRECTION is the axis direction vector (default: Y-axis).
    ANGLE is the revolution angle in radians (default: 2π for full rotation).
    If PLANE is not provided, uses default XY plane at Z=0.
 
-   LIMITATION: Revolution requires BRepPrimAPI_MakeRevol in FFI.
-   Currently returns a placeholder wire. For revolution geometry,
-   consider using sweep operations with a circular path instead."
-  (declare (ignore axis angle))
+   Returns a solid shape.
+
+   Example:
+     ;; Create a vase by revolving a profile
+     (let* ((sketch (make-sketch))
+            (pts (list (make-point-2d 10 0)   ; base
+                       (make-point-2d 12 5)
+                       (make-point-2d 8 15)
+                       (make-point-2d 10 20)))) ; top
+       (add-entity sketch (make-spline-2d pts))
+       ;; Add closing lines
+       (add-entity sketch (make-line-2d (first pts) (make-point-2d 0 0)))
+       (add-entity sketch (make-line-2d (make-point-2d 0 20) (car (last pts))))
+       (revolve-sketch sketch :axis-direction '(0 0 1)))"
   (unless plane
     (setf plane (make-sketch-plane :type :xy)))
 
-  ;; Revolution requires FFI binding for BRepPrimAPI_MakeRevol
-  ;; Return the base wire as a placeholder - users can use sweep with circular path
-  (sketch-to-wire sketch :plane plane))
+  ;; Create face from sketch, then revolve
+  (let* ((face (sketch-to-face sketch :plane plane))
+         (face-handle (if (typep face 'clad.ffi:occt-handle)
+                          face
+                          (clad.core:shape-handle face))))
+    ;; Use FFI revolution
+    (clad.ffi:ffi-make-revol face-handle axis-point axis-direction angle)))

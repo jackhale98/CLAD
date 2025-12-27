@@ -583,6 +583,61 @@ int occt_mirror_shape(occt_shape_t shape,
                       char** out_error);
 
 /*
+ * Sketch Operations - Face, Extrude, Revolve
+ */
+
+/**
+ * Create a face from a closed planar wire
+ * @param wire Input wire (must be closed and planar)
+ * @param planar_only If 1, only allows planar wires. If 0, attempts non-planar.
+ * @param out_face Pointer to receive the face
+ * @param out_error Pointer to receive error message (if any)
+ * @return Error code (OCCT_SUCCESS on success)
+ */
+int occt_make_face_from_wire(occt_shape_t wire,
+                              int planar_only,
+                              occt_shape_t* out_face,
+                              char** out_error);
+
+/**
+ * Create a prism (linear extrusion) from a base shape
+ * @param base_shape Base shape (face for solid, wire for shell)
+ * @param dx X component of extrusion direction
+ * @param dy Y component of extrusion direction
+ * @param dz Z component of extrusion direction
+ * @param make_solid 1 to create solid (requires face input)
+ * @param out_shape Pointer to receive the prism
+ * @param out_error Pointer to receive error message (if any)
+ * @return Error code (OCCT_SUCCESS on success)
+ */
+int occt_make_prism(occt_shape_t base_shape,
+                    double dx, double dy, double dz,
+                    int make_solid,
+                    occt_shape_t* out_shape,
+                    char** out_error);
+
+/**
+ * Create a solid of revolution from a base shape
+ * @param base_shape Base shape (face or wire) to revolve
+ * @param axis_px X coordinate of a point on the axis
+ * @param axis_py Y coordinate of a point on the axis
+ * @param axis_pz Z coordinate of a point on the axis
+ * @param axis_dx X component of axis direction
+ * @param axis_dy Y component of axis direction
+ * @param axis_dz Z component of axis direction
+ * @param angle_radians Angle of revolution in radians (2*PI for full)
+ * @param out_shape Pointer to receive the revolved shape
+ * @param out_error Pointer to receive error message (if any)
+ * @return Error code (OCCT_SUCCESS on success)
+ */
+int occt_make_revol(occt_shape_t base_shape,
+                    double axis_px, double axis_py, double axis_pz,
+                    double axis_dx, double axis_dy, double axis_dz,
+                    double angle_radians,
+                    occt_shape_t* out_shape,
+                    char** out_error);
+
+/*
  * Memory Management
  */
 

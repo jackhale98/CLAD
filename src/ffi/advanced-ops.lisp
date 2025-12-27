@@ -287,8 +287,144 @@
         (stub-make-helical-sweep profile-points path))))
 
 ;;; ============================================================================
+;;; Sketch Operations - Face, Extrude, Revolve
+;;; ============================================================================
+
+(defcfun ("occt_make_face_from_wire" %occt-make-face-from-wire) :int
+  "Create face from closed planar wire"
+  (wire :pointer)
+  (planar-only :int)
+  (out-face :pointer)
+  (out-error :pointer))
+
+(defun ffi-make-face-from-wire (wire &key (planar-only t))
+  "Create a face from a closed planar wire.
+   WIRE is the shape handle of a closed wire.
+   PLANAR-ONLY if t, only allows planar wires; if nil, attempts non-planar.
+   Returns new face shape handle."
+  (if *occt-available-p*
+      (with-foreign-objects ((out-face :pointer)
+                             (out-error :pointer))
+        (setf (mem-ref out-error :pointer) (null-pointer))
+
+        (let ((result (%occt-make-face-from-wire (handle-ptr wire)
+                                                   (if planar-only 1 0)
+                                                   out-face
+                                                   out-error)))
+          (check-occt-result result out-error)
+          (make-occt-handle (mem-ref out-face :pointer)
+                           :type :shape
+                           :inc-ref nil)))
+
+      ;; Stub implementation
+      (stub-make-face-from-wire wire planar-only)))
+
+(defcfun ("occt_make_prism" %occt-make-prism) :int
+  "Create prism (linear extrusion)"
+  (base-shape :pointer)
+  (dx :double)
+  (dy :double)
+  (dz :double)
+  (make-solid :int)
+  (out-shape :pointer)
+  (out-error :pointer))
+
+(defun ffi-make-prism (base-shape direction &key (make-solid t))
+  "Create a prism by extruding a base shape along a direction.
+   BASE-SHAPE is a face (for solid) or wire (for shell).
+   DIRECTION is (dx dy dz) extrusion vector (includes distance).
+   MAKE-SOLID if t, creates solid (requires face input).
+   Returns new shape handle."
+  (destructuring-bind (dx dy dz) direction
+    (if *occt-available-p*
+        (with-foreign-objects ((out-shape :pointer)
+                               (out-error :pointer))
+          (setf (mem-ref out-error :pointer) (null-pointer))
+
+          (let ((result (%occt-make-prism (handle-ptr base-shape)
+                                           (coerce dx 'double-float)
+                                           (coerce dy 'double-float)
+                                           (coerce dz 'double-float)
+                                           (if make-solid 1 0)
+                                           out-shape
+                                           out-error)))
+            (check-occt-result result out-error)
+            (make-occt-handle (mem-ref out-shape :pointer)
+                             :type :shape
+                             :inc-ref nil)))
+
+        ;; Stub implementation
+        (stub-make-prism base-shape direction make-solid))))
+
+(defcfun ("occt_make_revol" %occt-make-revol) :int
+  "Create solid of revolution"
+  (base-shape :pointer)
+  (axis-px :double)
+  (axis-py :double)
+  (axis-pz :double)
+  (axis-dx :double)
+  (axis-dy :double)
+  (axis-dz :double)
+  (angle-radians :double)
+  (out-shape :pointer)
+  (out-error :pointer))
+
+(defun ffi-make-revol (base-shape axis-point axis-direction angle-radians)
+  "Create a solid of revolution by rotating a base shape around an axis.
+   BASE-SHAPE is a face or wire to revolve.
+   AXIS-POINT is (x y z) point on axis.
+   AXIS-DIRECTION is (dx dy dz) direction of axis.
+   ANGLE-RADIANS is revolution angle (2*pi for full revolution).
+   Returns new shape handle."
+  (destructuring-bind (px py pz) axis-point
+    (destructuring-bind (dx dy dz) axis-direction
+      (if *occt-available-p*
+          (with-foreign-objects ((out-shape :pointer)
+                                 (out-error :pointer))
+            (setf (mem-ref out-error :pointer) (null-pointer))
+
+            (let ((result (%occt-make-revol (handle-ptr base-shape)
+                                             (coerce px 'double-float)
+                                             (coerce py 'double-float)
+                                             (coerce pz 'double-float)
+                                             (coerce dx 'double-float)
+                                             (coerce dy 'double-float)
+                                             (coerce dz 'double-float)
+                                             (coerce angle-radians 'double-float)
+                                             out-shape
+                                             out-error)))
+              (check-occt-result result out-error)
+              (make-occt-handle (mem-ref out-shape :pointer)
+                               :type :shape
+                               :inc-ref nil)))
+
+          ;; Stub implementation
+          (stub-make-revol base-shape axis-point axis-direction angle-radians)))))
+
+;;; ============================================================================
 ;;; Stub Implementations (for testing without OCCT)
 ;;; ============================================================================
+
+(defun stub-make-face-from-wire (wire planar-only)
+  "Stub implementation of face from wire."
+  (declare (ignore wire planar-only))
+  (format *error-output*
+          "~&;; STUB: make face from wire (OCCT not available)~%")
+  (make-occt-handle (cffi:null-pointer) :type :shape :inc-ref nil))
+
+(defun stub-make-prism (base-shape direction make-solid)
+  "Stub implementation of prism."
+  (declare (ignore base-shape direction make-solid))
+  (format *error-output*
+          "~&;; STUB: prism extrusion (OCCT not available)~%")
+  (make-occt-handle (cffi:null-pointer) :type :shape :inc-ref nil))
+
+(defun stub-make-revol (base-shape axis-point axis-direction angle-radians)
+  "Stub implementation of revolution."
+  (declare (ignore base-shape axis-point axis-direction angle-radians))
+  (format *error-output*
+          "~&;; STUB: revolution (OCCT not available)~%")
+  (make-occt-handle (cffi:null-pointer) :type :shape :inc-ref nil))
 
 (defun stub-make-pipe (profile path)
   "Stub implementation of pipe sweep."
