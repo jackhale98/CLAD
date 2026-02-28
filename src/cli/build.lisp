@@ -15,11 +15,11 @@
   (when (probe-file quicklisp-init)
     (load quicklisp-init)))
 
-;; Load CLAD and CLI
+;; Load CLAD and CLI via Quicklisp (fetches dependencies like CFFI, etc.)
 (format t "Loading CLAD...~%")
-(asdf:load-system :clad :verbose nil)
+(funcall (intern "QUICKLOAD" :ql) :clad :silent t)
 (format t "Loading CLAD CLI...~%")
-(asdf:load-system :clad/cli :verbose nil)
+(funcall (intern "QUICKLOAD" :ql) :clad/cli :silent t)
 
 ;; Build the executable
 (format t "Building executable...~%")
