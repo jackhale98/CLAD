@@ -99,6 +99,19 @@ CLAD (Common Lisp CAD) is a mature, production-ready parametric CAD system built
 | Surface Area | ✅ Complete | Total surface area |
 | Inertia Tensor | ⚠️ Partial | Basic implementation |
 
+### CLI (100% Complete)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `clad build` | ✅ Complete | Export STEP, STL, glTF with param overrides |
+| `clad view` | ✅ Complete | Open part in 3D browser viewer |
+| `clad watch` | ✅ Complete | File watching with auto-rebuild |
+| `clad info` | ✅ Complete | Part listing, mass properties, JSON output |
+| `clad check` | ✅ Complete | Validate all parts in design file |
+| `clad repl` | ✅ Complete | Interactive REPL with optional file loading |
+| Binary build | ✅ Complete | `save-lisp-and-die` with compression |
+| CI/CD release | ✅ Complete | GitHub Actions for Linux/macOS/Windows |
+
 ---
 
 ## Technical Debt

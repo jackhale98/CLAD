@@ -101,6 +101,58 @@ brew install opencascade sbcl
 (defparameter *large-plate* (mounting-plate :width 150 :height 120))
 ```
 
+## CLI Usage
+
+CLAD includes a standalone CLI binary for scriptable, CI/CD-friendly CAD generation.
+
+### Building the CLI
+
+```bash
+./scripts/build-clad.sh
+# Produces: ./clad
+```
+
+### Commands
+
+```bash
+# Export a design to STEP and STL
+clad build design.lisp --step --stl
+
+# Export specific part with parameter overrides
+clad build design.lisp --part bracket --param width=150 --param thickness=8
+
+# View a part in the 3D browser viewer
+clad view design.lisp --part bracket
+
+# Watch a file for changes and auto-rebuild
+clad watch design.lisp --part bracket
+
+# List all parts in a design file
+clad info design.lisp
+
+# Show mass properties
+clad info design.lisp --part bracket --mass-properties --material aluminum
+
+# Validate all parts build successfully
+clad check design.lisp
+
+# Start interactive REPL with design loaded
+clad repl design.lisp
+```
+
+### Command Reference
+
+| Command | Description |
+|---------|-------------|
+| `build` | Export CAD files (STEP, STL, glTF) |
+| `view`  | Open part in 3D browser viewer |
+| `watch` | Watch file and auto-rebuild on changes |
+| `info`  | Show part information and properties |
+| `check` | Validate all parts in a design file |
+| `repl`  | Start interactive REPL |
+
+See `clad --help` for full option documentation.
+
 ## Core Concepts
 
 ### The defpart DSL

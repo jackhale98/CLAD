@@ -163,10 +163,25 @@
                    (:file "dsl")
                    (:file "view")))))))
 
+(defsystem "clad/cli"
+  :description "CLI interface for CLAD"
+  :version "0.1.0"
+  :depends-on (#:clad)
+  :serial t
+  :components ((:module "src"
+                :components
+                ((:module "cli"
+                  :serial t
+                  :components
+                  ((:file "package")
+                   (:file "args")
+                   (:file "output")
+                   (:file "commands")
+                   (:file "main")))))))
 
 (defsystem "clad/tests"
   :description "Test suite for CLAD"
-  :depends-on (#:clad #:fiveam)
+  :depends-on (#:clad #:clad/cli #:fiveam)
   :serial t
   :components ((:module "tests"
                 :serial t
@@ -202,7 +217,8 @@
                  (:file "dsl-tests")
                  (:file "advanced-features-tests")  ; Phase 8: selectors + fillets
                  (:file "sketch-tests")             ; Phase 9: sketch system
-                 (:file "assembly-tests"))))        ; Phase 10: assembly system
+                 (:file "assembly-tests")           ; Phase 10: assembly system
+                 (:file "cli-tests"))))             ; CLI tests
   :perform (test-op (op c)
                     (declare (ignorable op c))
                     (symbol-call :fiveam '#:run! :clad-tests)))

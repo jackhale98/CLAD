@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLAD - Code-First CAD in Common Lisp</title>
+    <meta name="description" content="CLAD is a parametric CAD system built on OpenCASCADE. Design 3D parts using Common Lisp code.">
+
+    <!-- Model Viewer for 3D -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+
+    <!-- Syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-lisp.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-card: #161b22;
+            --bg-code: #1e2430;
+            --accent: #58a6ff;
+            --accent-hover: #79b8ff;
+            --text: #c9d1d9;
+            --text-muted: #8b949e;
+            --border: #30363d;
+            --success: #3fb950;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        header {
+            padding: 60px 0 40px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-size: 4rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+        }
+
+        .tagline {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+        }
+
+        .badges {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .badge.highlight {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg-dark);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Sections */
+        section {
+            padding: 60px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        section:last-child {
+            border-bottom: none;
+        }
+
+        h2 {
+            font-size: 2rem;
+            margin-bottom: 24px;
+            color: var(--text);
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            margin-bottom: 12px;
+            color: var(--text);
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        /* Model Viewer Section */
+        .model-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .model-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .model-card model-viewer {
+            width: 100%;
+            height: 250px;
+            background: linear-gradient(135deg, #1a1f2e 0%, #0d1117 100%);
+        }
+
+        .model-info {
+            padding: 16px;
+        }
+
+        .model-info h3 {
+            margin-bottom: 8px;
+        }
+
+        .model-info p {
+            font-size: 0.875rem;
+            margin-bottom: 0;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+
+        /* Code Examples */
+        .code-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 0;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0;
+        }
+
+        .code-tab {
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: all 0.2s;
+        }
+
+        .code-tab:hover {
+            color: var(--text);
+        }
+
+        .code-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .code-panel {
+            display: none;
+            background: var(--bg-code);
+            border-radius: 0 0 12px 12px;
+            overflow: hidden;
+        }
+
+        .code-panel.active {
+            display: block;
+        }
+
+        .code-panel pre {
+            margin: 0;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .code-panel code {
+            font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        /* Installation */
+        .install-steps {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .install-step {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .install-step:last-child {
+            border-bottom: none;
+        }
+
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: var(--accent);
+            color: var(--bg-dark);
+            border-radius: 50%;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-right: 12px;
+        }
+
+        .install-step pre {
+            background: var(--bg-code);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            overflow-x: auto;
+        }
+
+        .install-step code {
+            font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+            font-size: 0.875rem;
+            color: var(--success);
+        }
+
+        /* Comparison Table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 24px;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .comparison-table th {
+            background: var(--bg-card);
+            font-weight: 600;
+        }
+
+        .comparison-table td:first-child {
+            font-weight: 500;
+        }
+
+        .check {
+            color: var(--success);
+        }
+
+        .partial {
+            color: #d29922;
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 2.5rem;
+            }
+
+            .tagline {
+                font-size: 1.125rem;
+            }
+
+            h2 {
+                font-size: 1.5rem;
+            }
+
+            .model-gallery {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1 class="logo">CLAD</h1>
+            <p class="tagline">Code-First CAD in Common Lisp</p>
+
+            <div class="badges">
+                <span class="badge highlight">OpenCASCADE Kernel</span>
+                <span class="badge">Parametric Design</span>
+                <span class="badge">STEP/STL/glTF Export</span>
+                <span class="badge">GD&T Support</span>
+                <span class="badge">Assembly Modeling</span>
+            </div>
+
+            <div class="cta-buttons">
+                <a href="https://github.com/anthropics/clad" class="btn btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                    </svg>
+                    View on GitHub
+                </a>
+                <a href="#getting-started" class="btn btn-secondary">Get Started</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Interactive Models -->
+        <section id="examples">
+            <div class="container">
+                <h2>Interactive Examples</h2>
+                <p>Explore 3D models created with CLAD. Drag to rotate, scroll to zoom.</p>
+
+                <div class="model-gallery">
+                    <div class="model-card">
+                        <model-viewer
+                            src="models/bracket.glb"
+                            alt="Mounting bracket"
+                            camera-controls
+                            auto-rotate
+                            shadow-intensity="1"
+                            exposure="0.8">
+                        </model-viewer>
+                        <div class="model-info">
+                            <h3>Mounting Bracket</h3>
+                            <p>Plate with boss and bolt pattern. Demonstrates boolean operations and transformations.</p>
+                        </div>
+                    </div>
+
+                    <div class="model-card">
+                        <model-viewer
+                            src="models/flange.glb"
+                            alt="Flanged pipe"
+                            camera-controls
+                            auto-rotate
+                            shadow-intensity="1"
+                            exposure="0.8">
+                        </model-viewer>
+                        <div class="model-info">
+                            <h3>Flanged Pipe</h3>
+                            <p>Pipe section with flanges. Shows union and cut operations on cylindrical geometry.</p>
+                        </div>
+                    </div>
+
+                    <div class="model-card">
+                        <model-viewer
+                            src="models/shaft.glb"
+                            alt="Stepped shaft"
+                            camera-controls
+                            auto-rotate
+                            shadow-intensity="1"
+                            exposure="0.8">
+                        </model-viewer>
+                        <div class="model-info">
+                            <h3>Stepped Shaft</h3>
+                            <p>Multi-diameter shaft with keyway. Demonstrates union of cylinders and cut features.</p>
+                        </div>
+                    </div>
+
+                    <div class="model-card">
+                        <model-viewer
+                            src="models/enclosure.glb"
+                            alt="Electronics enclosure"
+                            camera-controls
+                            auto-rotate
+                            shadow-intensity="1"
+                            exposure="0.8">
+                        </model-viewer>
+                        <div class="model-info">
+                            <h3>Electronics Enclosure</h3>
+                            <p>Hollowed box with mounting holes and ventilation. Shows shell-like operations.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section id="features">
+            <div class="container">
+                <h2>Why CLAD?</h2>
+
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">&#128736;</div>
+                        <h3>Production-Grade Kernel</h3>
+                        <p>Built on OpenCASCADE (OCCT), the same geometry kernel used by FreeCAD, KiCad, and industrial CAD systems.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">&#128202;</div>
+                        <h3>Parametric by Default</h3>
+                        <p>Every dimension is a parameter. Change one value, regenerate the entire model. Perfect for design iteration.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">&#128269;</div>
+                        <h3>Powerful Selectors</h3>
+                        <p>Select faces, edges, and features by direction, type, position, or Boolean combinations. No manual face picking.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">&#128207;</div>
+                        <h3>GD&T / Tolerancing</h3>
+                        <p>Full ASME Y14.5 support with export to STEP AP242 PMI. Add position, flatness, perpendicularity and more.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">&#128295;</div>
+                        <h3>Real Thread Geometry</h3>
+                        <p>119 thread specifications (ISO Metric, UNC, UNF) with actual 3D helical geometry, not cosmetic.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">&#128230;</div>
+                        <h3>Assembly Support</h3>
+                        <p>Define assemblies with mate constraints, generate BOM, and export complete assemblies to STEP.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Code Examples -->
+        <section id="code">
+            <div class="container">
+                <h2>Code Examples</h2>
+                <p>See how naturally designs translate to code with CLAD's declarative DSL.</p>
+
+                <div class="code-tabs">
+                    <button class="code-tab active" onclick="showTab('simple')">Simple Part</button>
+                    <button class="code-tab" onclick="showTab('parametric')">Parametric</button>
+                    <button class="code-tab" onclick="showTab('selectors')">Selectors</button>
+                    <button class="code-tab" onclick="showTab('gdt')">GD&T</button>
+                    <button class="code-tab" onclick="showTab('sketch')">2D Sketch</button>
+                </div>
+
+                <div id="simple" class="code-panel active">
+                    <pre><code class="language-lisp">;; Create a simple bracket in just a few lines
+(clad.dsl:defpart bracket ((width 100) (height 50) (thickness 8))
+  "Mounting bracket with bolt holes"
+  (:body (clad.core:make-box width height thickness))
+
+  ;; Add holes on the top face
+  (:on-face :direction :+z :extreme :max
+    (:circular-pattern :count 4 :radius 35
+                       :center-x 50 :center-y 25
+      (:cut (clad.core:make-cylinder 4 20)))))
+
+;; Create and export
+(clad.export:export-step (bracket) "bracket.step")</code></pre>
+                </div>
+
+                <div id="parametric" class="code-panel">
+                    <pre><code class="language-lisp">;; Parametric design - change one value, update everything
+(clad.dsl:defpart flange ((pipe-dia 40) (flange-dia 80)
+                          (thickness 12) (bolt-count 6))
+  "Parametric pipe flange"
+  (:body (clad.core:make-cylinder (/ flange-dia 2) thickness))
+
+  ;; Central bore scales with pipe diameter
+  (:cut (clad.core:make-cylinder (/ pipe-dia 2) (+ thickness 2)))
+
+  ;; Bolt pattern automatically adjusts
+  (:on-face :direction :+z :extreme :max
+    (:circular-pattern
+        :count bolt-count
+        :radius (* flange-dia 0.4)
+      (:cut (clad.core:make-cylinder 5 (+ thickness 2))))))
+
+;; Create variations
+(flange)                          ; Default: 40mm pipe, 6 bolts
+(flange :pipe-dia 60 :bolt-count 8)  ; Larger version</code></pre>
+                </div>
+
+                <div id="selectors" class="code-panel">
+                    <pre><code class="language-lisp">;; Powerful face/edge selection without manual picking
+(clad.dsl:defpart housing ((size 100))
+  "Housing with features on selected faces"
+  (:body (clad.core:make-box size size 50))
+
+  ;; Select top face by direction
+  (:on-face :direction :+z :extreme :max
+    (:cut (clad.core:make-cylinder 20 60)))
+
+  ;; Select all vertical faces
+  (:on-faces :parallel :z
+    (:add (clad.core:make-box 10 10 5)))
+
+  ;; Combine selectors with AND/OR
+  (:on-face :and :type :plane
+                 :direction :+x
+                 :extreme :max
+    (:datum "A"))
+
+  ;; Select by position
+  (:on-edges :at-z 25 :tolerance 0.1
+    (:fillet 3)))</code></pre>
+                </div>
+
+                <div id="gdt" class="code-panel">
+                    <pre><code class="language-lisp">;; GD&T with ASME Y14.5 compliance and STEP AP242 export
+(clad.dsl:defpart precision-block ()
+  "Precision machined block with full tolerancing"
+  (:body (clad.core:make-box 100 50 30))
+
+  ;; Primary datum on bottom face
+  (:datum "A" :on-face :direction :-z :extreme :min)
+
+  ;; Secondary datum on back face
+  (:datum "B" :on-face :direction :-y :extreme :min)
+
+  ;; Flatness on top surface
+  (:flatness :on-face :direction :+z :extreme :max
+             :tolerance 0.02)
+
+  ;; Perpendicularity relative to datum A
+  (:perpendicularity :on-face :direction :+y :extreme :max
+                     :tolerance 0.05
+                     :datum-ref "A")
+
+  ;; True position for bolt hole pattern
+  (:on-face :direction :+z :extreme :max
+    (:circular-pattern :count 4 :radius 35
+      (:cut (clad.core:make-cylinder 5 35))
+      (:position :tolerance 0.1
+                 :datum-refs ("A" "B")
+                 :mmc t))))
+
+;; Export with PMI data
+(clad.export:export-step-ap242 (precision-block) "block.step")</code></pre>
+                </div>
+
+                <div id="sketch" class="code-panel">
+                    <pre><code class="language-lisp">;; 2D Sketch with constraints, then extrude or revolve
+;; Create a sketch
+(let* ((sketch (clad.sketch:make-sketch))
+       ;; Define points
+       (p1 (clad.sketch:make-point-2d 0 0 :fixed t))
+       (p2 (clad.sketch:make-point-2d 80 0))
+       (p3 (clad.sketch:make-point-2d 80 40))
+       (p4 (clad.sketch:make-point-2d 0 40)))
+
+  ;; Add lines forming rectangle
+  (clad.sketch:add-entity sketch (clad.sketch:make-line-2d p1 p2))
+  (clad.sketch:add-entity sketch (clad.sketch:make-line-2d p2 p3))
+  (clad.sketch:add-entity sketch (clad.sketch:make-line-2d p3 p4))
+  (clad.sketch:add-entity sketch (clad.sketch:make-line-2d p4 p1))
+
+  ;; Extrude to 3D solid
+  (clad.sketch:extrude-sketch sketch 20.0))
+
+;; Revolution example - create a torus
+(let* ((sketch (clad.sketch:make-sketch))
+       (center (clad.sketch:make-point-2d 30 0))
+       (circle (clad.sketch:make-circle-2d center 8.0)))
+  (clad.sketch:add-entity sketch circle)
+  ;; Revolve around Y axis
+  (clad.sketch:revolve-sketch sketch))</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Getting Started -->
+        <section id="getting-started">
+            <div class="container">
+                <h2>Getting Started</h2>
+
+                <div class="install-steps">
+                    <div class="install-step">
+                        <span class="step-number">1</span>
+                        <strong>Install Dependencies</strong>
+                        <pre><code># Ubuntu/Debian
+sudo apt install libocct-foundation-dev libocct-modeling-algorithms-dev \
+                 libocct-data-exchange-dev sbcl
+
+# macOS
+brew install opencascade sbcl</code></pre>
+                    </div>
+
+                    <div class="install-step">
+                        <span class="step-number">2</span>
+                        <strong>Clone and Build</strong>
+                        <pre><code>git clone https://github.com/anthropics/clad.git
+cd clad/c-wrapper && mkdir build && cd build
+cmake .. && make</code></pre>
+                    </div>
+
+                    <div class="install-step">
+                        <span class="step-number">3</span>
+                        <strong>Load in REPL</strong>
+                        <pre><code>(push #p"/path/to/clad/" asdf:*central-registry*)
+(asdf:load-system :clad)</code></pre>
+                    </div>
+
+                    <div class="install-step">
+                        <span class="step-number">4</span>
+                        <strong>Create Your First Part</strong>
+                        <pre><code>(clad.dsl:defpart my-first-part ()
+  (:body (clad.core:make-box 50 30 20)))
+
+(clad.export:export-step (my-first-part) "my-part.step")</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Feature Comparison -->
+        <section id="comparison">
+            <div class="container">
+                <h2>Feature Comparison</h2>
+
+                <div style="overflow-x: auto;">
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Feature</th>
+                                <th>CLAD</th>
+                                <th>OpenSCAD</th>
+                                <th>CadQuery</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Language</td>
+                                <td>Common Lisp</td>
+                                <td>Custom DSL</td>
+                                <td>Python</td>
+                            </tr>
+                            <tr>
+                                <td>CAD Kernel</td>
+                                <td>OpenCASCADE</td>
+                                <td>CGAL</td>
+                                <td>OpenCASCADE</td>
+                            </tr>
+                            <tr>
+                                <td>Face/Edge Selectors</td>
+                                <td><span class="check">&#10004; Best-in-class</span></td>
+                                <td><span class="partial">Limited</span></td>
+                                <td><span class="check">&#10004; Good</span></td>
+                            </tr>
+                            <tr>
+                                <td>GD&T / Tolerancing</td>
+                                <td><span class="check">&#10004; Full ASME Y14.5</span></td>
+                                <td>&#10008;</td>
+                                <td><span class="partial">Basic</span></td>
+                            </tr>
+                            <tr>
+                                <td>STEP AP242 (PMI)</td>
+                                <td><span class="check">&#10004;</span></td>
+                                <td>&#10008;</td>
+                                <td>&#10008;</td>
+                            </tr>
+                            <tr>
+                                <td>Real Thread Geometry</td>
+                                <td><span class="check">&#10004; 119 specs</span></td>
+                                <td><span class="partial">Cosmetic</span></td>
+                                <td><span class="check">&#10004;</span></td>
+                            </tr>
+                            <tr>
+                                <td>Assembly / BOM</td>
+                                <td><span class="check">&#10004;</span></td>
+                                <td>&#10008;</td>
+                                <td><span class="check">&#10004;</span></td>
+                            </tr>
+                            <tr>
+                                <td>2D Sketching</td>
+                                <td><span class="check">&#10004;</span></td>
+                                <td>&#10008;</td>
+                                <td><span class="check">&#10004;</span></td>
+                            </tr>
+                            <tr>
+                                <td>REPL Workflow</td>
+                                <td><span class="check">&#10004;</span></td>
+                                <td>&#10008;</td>
+                                <td><span class="check">&#10004;</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>
+                CLAD is open source software.
+                <a href="https://github.com/anthropics/clad">GitHub</a> &middot;
+                <a href="https://github.com/anthropics/clad/issues">Issues</a> &middot;
+                <a href="https://github.com/anthropics/clad/blob/main/USER_GUIDE.md">Documentation</a>
+            </p>
+            <p style="margin-top: 12px;">
+                Built with Common Lisp and OpenCASCADE
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        function showTab(tabId) {
+            // Hide all panels
+            document.querySelectorAll('.code-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+
+            // Show selected
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+
+            // Re-highlight
+            Prism.highlightAll();
+        }
+    </script>
+</body>
+</html>

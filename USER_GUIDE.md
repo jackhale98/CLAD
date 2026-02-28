@@ -19,7 +19,8 @@ A comprehensive guide to designing parametric CAD models with CLAD.
 13. [2D Sketching](#2d-sketching)
 14. [Assemblies](#assemblies)
 15. [Viewing and Export](#viewing-and-export)
-16. [Best Practices](#best-practices)
+16. [CLI Usage](#cli-usage)
+17. [Best Practices](#best-practices)
 
 ---
 
@@ -2217,6 +2218,137 @@ Add threads to existing geometry:
          :plate1 :hole-1
          :bolt :axis))
 ```
+
+---
+
+## CLI Usage
+
+CLAD includes a standalone command-line interface for scriptable CAD generation without needing an interactive REPL.
+
+### Building the Binary
+
+```bash
+# Build the clad binary
+./scripts/build-clad.sh
+
+# Or specify a custom output path
+./scripts/build-clad.sh /usr/local/bin/clad
+```
+
+This produces a self-contained executable that includes SBCL, CLAD, and all dependencies.
+
+### Commands
+
+#### `clad build` - Export CAD Files
+
+The primary command for batch export workflows.
+
+```bash
+# Export to STEP (default format)
+clad build design.lisp
+
+# Export to multiple formats
+clad build design.lisp --step --stl --gltf
+
+# Export specific part with high-res STL
+clad build design.lisp --part bracket --stl --resolution high
+
+# Override parameters at the command line
+clad build design.lisp --part bracket --param width=150 --param thickness=8
+
+# Export to a specific directory
+clad build design.lisp --output-dir ./exports
+
+# ASCII STL for debugging
+clad build design.lisp --stl --ascii
+```
+
+**Resolution options for STL:** `low`, `medium` (default), `high`, `ultra`
+
+#### `clad view` - 3D Viewer
+
+Opens a part in the web-based 3D viewer.
+
+```bash
+clad view design.lisp --part bracket
+clad view design.lisp --port 3000 --no-browser
+```
+
+The viewer runs until you press Ctrl+C.
+
+#### `clad watch` - File Watching
+
+Watches a design file and auto-rebuilds when it changes. Great for development workflows where you edit in one terminal and see live updates.
+
+```bash
+clad watch design.lisp --part bracket
+clad watch design.lisp --part bracket --interval 2.0
+```
+
+#### `clad info` - Part Information
+
+List parts or show detailed properties.
+
+```bash
+# List all parts in a design file
+clad info design.lisp
+
+# Show mass properties for a specific part
+clad info design.lisp --part bracket --mass-properties --material aluminum
+
+# JSON output for scripting
+clad info design.lisp --json
+```
+
+Available materials: `aluminum`, `steel`, `stainless`, `abs`, `pla`, `brass`, `copper`, `titanium`, `nylon`, `petg`
+
+#### `clad check` - Validation
+
+Validates that all parts in a design file build successfully.
+
+```bash
+clad check design.lisp
+```
+
+Reports pass/fail for each part with error details.
+
+#### `clad repl` - Interactive REPL
+
+Starts an interactive Common Lisp REPL, optionally pre-loading a design file.
+
+```bash
+clad repl
+clad repl design.lisp
+```
+
+### JSON Output
+
+Use `--json` with `info` for machine-readable output:
+
+```bash
+clad info design.lisp --json
+clad info design.lisp --part bracket --mass-properties --material steel --json
+```
+
+### CI/CD Integration
+
+Example GitHub Actions step:
+
+```yaml
+- name: Export CAD files
+  run: |
+    clad build designs/bracket.lisp --step --stl --output-dir artifacts/
+    clad check designs/bracket.lisp
+```
+
+### Global Options
+
+| Option | Description |
+|--------|-------------|
+| `--quiet` | Suppress informational messages |
+| `--json` | Machine-readable JSON output |
+| `-h`, `--help` | Show help |
+| `-V`, `--version` | Show version |
 
 ---
 

@@ -1,0 +1,126 @@
+name: Build Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+            artifact: clad-linux-amd64
+            occt-install: |
+              sudo apt-get update
+              sudo apt-get install -y libocct-foundation-dev \
+                                      libocct-modeling-data-dev \
+                                      libocct-modeling-algorithms-dev \
+                                      libocct-data-exchange-dev
+          - os: macos-latest
+            name: macos
+            artifact: clad-macos-arm64
+            occt-install: |
+              brew install opencascade
+          - os: windows-latest
+            name: windows
+            artifact: clad-windows-amd64.exe
+            occt-install: |
+              choco install opencascade -y
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.name }})
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install OpenCASCADE
+        run: ${{ matrix.occt-install }}
+
+      - name: Install SBCL (Linux)
+        if: matrix.name == 'linux'
+        run: sudo apt-get install -y sbcl
+
+      - name: Install SBCL (macOS)
+        if: matrix.name == 'macos'
+        run: brew install sbcl
+
+      - name: Install SBCL (Windows)
+        if: matrix.name == 'windows'
+        run: choco install sbcl -y
+
+      - name: Install Quicklisp
+        shell: bash
+        run: |
+          curl -o /tmp/quicklisp.lisp https://beta.quicklisp.org/quicklisp.lisp
+          sbcl --non-interactive \
+               --load /tmp/quicklisp.lisp \
+               --eval '(quicklisp-quickstart:install)' \
+               --eval '(ql:add-to-init-file)'
+
+      - name: Build C wrapper
+        shell: bash
+        run: |
+          if [ -f Makefile ]; then
+            make c-wrapper
+          elif [ -f c-wrapper/Makefile ]; then
+            cd c-wrapper && make
+          fi
+
+      - name: Register project with ASDF
+        shell: bash
+        run: |
+          mkdir -p ~/common-lisp
+          ln -sf "$(pwd)" ~/common-lisp/clad
+
+      - name: Build binary (Unix)
+        if: matrix.name != 'windows'
+        shell: bash
+        run: |
+          sbcl --non-interactive \
+               --load src/cli/build.lisp \
+               "${{ matrix.artifact }}"
+
+      - name: Build binary (Windows)
+        if: matrix.name == 'windows'
+        shell: bash
+        run: |
+          sbcl --non-interactive \
+               --load src/cli/build.lisp \
+               "${{ matrix.artifact }}"
+
+      - name: Make executable (Unix)
+        if: matrix.name != 'windows'
+        run: chmod +x ${{ matrix.artifact }}
+
+      - name: Verify binary
+        shell: bash
+        run: ./${{ matrix.artifact }} --version
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            clad-linux-amd64/clad-linux-amd64
+            clad-macos-arm64/clad-macos-arm64
+            clad-windows-amd64.exe/clad-windows-amd64.exe
